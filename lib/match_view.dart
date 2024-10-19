@@ -26,8 +26,8 @@ class _MatchViewState extends State<MatchView> {
         title: const Text('Match Day'),
         backgroundColor: Colors.black,
         actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: () {}),
+          IconButton(icon: Icon(Icons.search), onPressed: () {}),
+          IconButton(icon: Icon(Icons.refresh), onPressed: () {}),
         ],
       ),
       backgroundColor: Colors.black,
@@ -35,8 +35,8 @@ class _MatchViewState extends State<MatchView> {
         itemCount: matches.length + 1,
         itemBuilder: (context, index) {
           if (index == 0) {
-            return const Padding(
-              padding: EdgeInsets.all(16.0),
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Text(
                 'Thursday',
                 style: TextStyle(
@@ -55,7 +55,7 @@ class _MatchViewState extends State<MatchView> {
 
   Widget buildMatchCard(Map<String, dynamic> match, int matchIndex) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Colors.grey[900],
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -67,21 +67,19 @@ class _MatchViewState extends State<MatchView> {
               children: [
                 Text(
                   'Match $matchIndex',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: Colors.white, fontWeight: FontWeight.bold),
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.access_time,
-                        color: Colors.white, size: 16),
-                    const SizedBox(width: 4),
-                    Text(match['time'],
-                        style: const TextStyle(color: Colors.white)),
+                    Icon(Icons.access_time, color: Colors.white, size: 16),
+                    SizedBox(width: 4),
+                    Text(match['time'], style: TextStyle(color: Colors.white)),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             buildPlayerRow(match, 'player1', 'player2'),
             buildPlayerRow(match, 'player3', 'player4'),
           ],
@@ -104,106 +102,66 @@ class _MatchViewState extends State<MatchView> {
   Widget buildPlayerInfo(Map<String, dynamic> match, String playerKey,
       {bool alignRight = false}) {
     Player player = match[playerKey];
-    return GestureDetector(
-      onTap: () => _showPlayerSelectionDialog(match, playerKey),
-      child: Row(
-        mainAxisAlignment:
-            alignRight ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          if (!alignRight) buildRankBox(player.rank),
-          if (!alignRight) const SizedBox(width: 8),
-          Text(player.name, style: const TextStyle(color: Colors.white)),
-          if (alignRight) const SizedBox(width: 8),
-          if (alignRight) buildRankBox(player.rank),
-        ],
-      ),
-    );
-  }
-
-  Widget buildRankBox(int rank) {
-    Color boxColor = Colors.blue;
-    if (rank > 30) boxColor = Colors.yellow;
-    if (rank > 50) boxColor = Colors.green;
-    if (rank > 70) boxColor = Colors.orange;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: boxColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        rank.toString(),
-        style:
-            const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  // Updated buildScoreBoxes to match the new logic
-  Widget buildScoreBoxes(Map<String, dynamic> match, String playerKey) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment:
+          alignRight ? MainAxisAlignment.end : MainAxisAlignment.start,
       children: [
-        // Sets (blue box) - non-clickable, automatically updated
-        buildSetBox(match, playerKey),
-        const SizedBox(width: 4), // Small horizontal spacing
-        // Games (grey boxes) - clickable
-        ...List.generate(
-          3,
-          (index) => buildScoreBox(match, playerKey, index, Colors.grey[800]!),
+        if (!alignRight) player.avatar(size: 30),
+        SizedBox(width: 8),
+        Text(
+          player.name,
+          style: TextStyle(color: Colors.white, fontSize: 12),
         ),
+        if (alignRight) SizedBox(width: 8),
+        if (alignRight) player.avatar(size: 30),
       ],
     );
   }
 
-  Widget buildSetBox(Map<String, dynamic> match, String playerKey) {
-    int sets = match['score'][playerKey]['sets'] ?? 0;
-
-    return Container(
-      width: 20,
-      height: 20,
-      margin: const EdgeInsets.symmetric(horizontal: 1),
-      decoration: BoxDecoration(
-        color: Colors.blue,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Center(
-        child: Text(
-          sets.toString(),
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-        ),
-      ),
+  Widget buildScoreBoxes(Map<String, dynamic> match, String playerKey) {
+    return Row(
+      children: [
+        // Sets (blue box) - only 1 needed
+        buildScoreBox(match, playerKey, 'sets', 0, Colors.blue),
+        const SizedBox(width: 4),
+        // Games (grey boxes) - 3 needed
+        buildScoreBox(match, playerKey, 'games', 0, Colors.grey[800]!),
+        buildScoreBox(match, playerKey, 'games', 1, Colors.grey[800]!),
+        buildScoreBox(match, playerKey, 'games', 2, Colors.grey[800]!),
+      ],
     );
   }
 
-  Widget buildScoreBox(
-      Map<String, dynamic> match, String playerKey, int index, Color color) {
-    List<int> games = List<int>.from(match['score'][playerKey]['games']);
-    int score = index < games.length ? games[index] : 0;
-    bool isMatchOver = match['score'][playerKey]['sets'] == 2 ||
-        match['score'][getOpponentKey(playerKey)]['sets'] == 2;
-    bool isSetPlayable = !isMatchOver &&
-        (index < games.length ||
-            (index == games.length &&
-                match['score'][playerKey]['sets'] +
-                        match['score'][getOpponentKey(playerKey)]['sets'] <
-                    3));
+  Widget buildScoreBox(Map<String, dynamic> match, String playerKey,
+      String scoreType, int index, Color color) {
+    int score = 0;
+    if (match['score'] != null &&
+        match['score'][playerKey] != null &&
+        match['score'][playerKey][scoreType] != null) {
+      if (scoreType == 'sets') {
+        score = match['score'][playerKey][scoreType];
+      } else {
+        // 'games'
+        List<int> games = List<int>.from(match['score'][playerKey][scoreType]);
+        if (index < games.length) {
+          score = games[index];
+        }
+      }
+    }
 
     return GestureDetector(
-      onTap: isSetPlayable ? () => _updateScore(match, playerKey, index) : null,
+      onTap: () => _updateScore(match, playerKey, scoreType, index),
       child: Container(
         width: 20,
         height: 20,
         margin: const EdgeInsets.symmetric(horizontal: 1),
         decoration: BoxDecoration(
-          color: isSetPlayable ? color : Colors.grey[600],
+          color: color,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Center(
           child: Text(
-            isSetPlayable ? score.toString() : '',
+            score.toString(),
             style: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
           ),
@@ -212,53 +170,63 @@ class _MatchViewState extends State<MatchView> {
     );
   }
 
-  void _updateScore(Map<String, dynamic> match, String playerKey, int index) {
+  void _updateScore(Map<String, dynamic> match, String playerKey,
+      String scoreType, int index) {
     setState(() {
-      String opponentKey = getOpponentKey(playerKey);
-      List<int> playerGames =
-          List<int>.from(match['score'][playerKey]['games']);
-      List<int> opponentGames =
-          List<int>.from(match['score'][opponentKey]['games']);
-
-      if (index == playerGames.length) {
-        playerGames.add(1);
-        opponentGames.add(0);
-      } else {
-        playerGames[index]++;
+      if (match['score'] == null) {
+        match['score'] = {
+          'player1': {'sets': 0, 'games': []},
+          'player2': {'sets': 0, 'games': []},
+          'player3': {'sets': 0, 'games': []},
+          'player4': {'sets': 0, 'games': []},
+        };
       }
 
-      // Check if the player won the set
-      if ((playerGames[index] == 6 &&
-              playerGames[index] - opponentGames[index] >= 2) ||
-          (playerGames[index] == 7 &&
-              (opponentGames[index] == 5 || opponentGames[index] == 6))) {
-        _incrementSets(match, playerKey);
-      } else if (playerGames[index] > 7 ||
-          (playerGames[index] == 7 && opponentGames[index] < 5)) {
-        playerGames[index]--; // Prevent invalid scores
-      }
+      String opponentKey = playerKey == 'player1' ? 'player2' : 'player1';
 
-      match['score'][playerKey]['games'] = playerGames;
-      match['score'][opponentKey]['games'] = opponentGames;
+      if (scoreType == 'games') {
+        List<int> playerGames =
+            List<int>.from(match['score'][playerKey]['games']);
+        List<int> opponentGames =
+            List<int>.from(match['score'][opponentKey]['games']);
+
+        if (index == playerGames.length) {
+          playerGames.add(1);
+          opponentGames.add(0);
+        } else {
+          playerGames[index]++;
+        }
+
+        // Check if the player won the set
+        if ((playerGames[index] == 6 &&
+                playerGames[index] - opponentGames[index] >= 2) ||
+            (playerGames[index] == 7 &&
+                (opponentGames[index] == 5 || opponentGames[index] == 6))) {
+          _incrementSets(match, playerKey);
+        } else if (playerGames[index] > 7 ||
+            (playerGames[index] == 7 && opponentGames[index] < 5)) {
+          playerGames[index]--; // Prevent invalid scores
+        }
+
+        match['score'][playerKey]['games'] = playerGames;
+        match['score'][opponentKey]['games'] = opponentGames;
+      } else if (scoreType == 'sets') {
+        if (match['score'][playerKey]['sets'] < 2) {
+          match['score'][playerKey]['sets']++;
+        }
+      }
     });
   }
 
   void _incrementSets(Map<String, dynamic> match, String playerKey) {
-    String opponentKey = getOpponentKey(playerKey);
+    String opponentKey = playerKey == 'player1' ? 'player2' : 'player1';
     if (match['score'][playerKey]['sets'] < 2) {
       match['score'][playerKey]['sets']++;
-      if (match['score'][playerKey]['games'].length < 3 &&
-          match['score'][playerKey]['sets'] +
-                  match['score'][opponentKey]['sets'] <
-              3) {
+      if (match['score'][playerKey]['games'].length < 3) {
         match['score'][playerKey]['games'].add(0);
         match['score'][opponentKey]['games'].add(0);
       }
     }
-  }
-
-  String getOpponentKey(String playerKey) {
-    return playerKey == 'player1' ? 'player2' : 'player1';
   }
 
   List<Map<String, dynamic>> generateMatches() {
@@ -277,35 +245,5 @@ class _MatchViewState extends State<MatchView> {
         },
       };
     });
-  }
-
-  void _showPlayerSelectionDialog(
-      Map<String, dynamic> match, String playerKey) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Select Player'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: widget.players.length,
-              itemBuilder: (BuildContext context, int index) {
-                return ListTile(
-                  title: Text(widget.players[index].name),
-                  onTap: () {
-                    setState(() {
-                      match[playerKey] = widget.players[index];
-                    });
-                    Navigator.of(context).pop();
-                  },
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
   }
 }

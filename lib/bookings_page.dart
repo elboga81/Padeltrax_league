@@ -88,21 +88,8 @@ class _BookingsPageState extends State<BookingsPage> {
                     children: [
                       Stack(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: getBorderColor(index),
-                                width: 3,
-                              ),
-                            ),
-                            child: CircleAvatar(
-                              radius: 30,
-                              backgroundImage: AssetImage(player.profileImage),
-                            ),
-                          ),
+                          player.avatar(
+                              size: 60), // Using the new avatar method
                           Positioned(
                             right: 0,
                             top: 0,
