@@ -1,0 +1,5 @@
+selected_files:
+auth_service.dart
+firebase_options.dart
+firebase_service.dart
+main.dart

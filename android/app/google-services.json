@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "1040892024883",
+    "project_id": "padel-trax-killwd",
+    "storage_bucket": "padel-trax-killwd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1040892024883:android:356a9c87e4df68237c6b46",
+        "android_client_info": {
+          "package_name": "com.mycompany.padeltrax"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1040892024883-73gadhsbta3s38np5os12s2feivfi4o3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMpwBZbDi6AFOQEheg1TOzG0aNwg2dfHc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1040892024883-73gadhsbta3s38np5os12s2feivfi4o3.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1040892024883-tnjjjof76g97ie1144oad1mnbi05gph6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.padeltrax"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

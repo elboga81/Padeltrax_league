@@ -1,0 +1,26 @@
+Analyzing padeltrax_app...                                      
+
+warning • The value of the field '_statisticsService' isn't used • lib/providers/app_state.dart:13:27 • unused_field
+   info • Don't use 'BuildContext's across async gaps • lib/screens/auth/registration_screen.dart:55:9 • use_build_context_synchronously
+   info • 'onPopInvoked' is deprecated and shouldn't be used. Use onPopInvokedWithResult instead. This feature was deprecated after v3.22.0-12.0.pre • lib/screens/booking/booking_details_page.dart:115:7 • deprecated_member_use
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/screens/booking/booking_details_page.dart:170:45 • use_build_context_synchronously
+   info • The declaration '_handleLogout' isn't referenced • lib/screens/main_dashboard/main_dashboard.dart:123:16 • unused_element
+  error • The method 'updateMatchScore' isn't defined for the type 'AppState' • lib/screens/match/components/match_card.dart:70:22 • undefined_method
+  error • The method 'updateMatchScore' isn't defined for the type 'AppState' • lib/screens/match/components/match_card.dart:76:22 • undefined_method
+  error • The method 'updateMatchScore' isn't defined for the type 'AppState' • lib/screens/match/components/match_card.dart:84:22 • undefined_method
+  error • The method 'updateMatchScore' isn't defined for the type 'AppState' • lib/screens/match/components/match_card.dart:90:22 • undefined_method
+  error • The method 'updateMatchStatus' isn't defined for the type 'AppState' • lib/screens/match/components/match_card.dart:99:24 • undefined_method
+   info • Don't use 'BuildContext's across async gaps • lib/screens/match/components/match_card.dart:110:28 • use_build_context_synchronously
+   info • Use 'const' with the constructor to improve performance • lib/screens/match/tabs/current_matches_tab.dart:49:15 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/screens/match/tabs/current_matches_tab.dart:51:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/screens/match/tabs/current_matches_tab.dart:52:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/screens/match/tabs/current_matches_tab.dart:53:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/screens/match/tabs/current_matches_tab.dart:54:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/screens/match/tabs/current_matches_tab.dart:55:13 • prefer_const_constructors
+warning • The method doesn't override an inherited method • lib/services/firestore_service.dart:207:16 • override_on_non_overriding_member
+  error • Missing concrete implementation of 'DataServiceInterface.loadBookingsForDay' • lib/services/mock_data_service.dart:5:7 • non_abstract_class_inherits_abstract_member
+  error • The method 'copyWith' isn't defined for the type 'Score' • lib/services/mock_data_service.dart:163:40 • undefined_method
+  error • The method 'copyWith' isn't defined for the type 'Score' • lib/services/mock_data_service.dart:165:40 • undefined_method
+   info • The parameter name 'sum' matches a visible type name • lib/services/statistics_service.dart:66:48 • avoid_types_as_parameter_names
+   info • The parameter name 'sum' matches a visible type name • lib/services/statistics_service.dart:67:51 • avoid_types_as_parameter_names
+

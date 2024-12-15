@@ -1,0 +1,1659 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class UserModel {
+  final String id;
+  final String email;
+  final String name;
+  final double level;
+  final String nationality;
+  final String preferredSide;
+  final String? profileImageUrl;
+  final bool isAdmin;
+  final bool isLevelVerified;
+  final DateTime createdAt;
+  final DateTime? lastLoginAt;
+
+  UserModel({
+    required this.id,
+    required this.email,
+    required this.name,
+    required this.level,
+    required this.nationality,
+    required this.preferredSide,
+    this.profileImageUrl,
+    this.isAdmin = false,
+    this.isLevelVerified = false,
+    required this.createdAt,
+    this.lastLoginAt,
+  });
+
+  factory UserModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+
+    return UserModel(
+      id: doc.id,
+      email: data['email'] as String? ?? '',
+      name: data['name'] as String? ?? '',
+      level: (data['level'] as num?)?.toDouble() ?? 0.0,
+      nationality: data['nationality'] as String? ?? '',
+      preferredSide: data['preferredSide'] as String? ?? 'Right',
+      profileImageUrl: data['profileImageUrl'] as String?,
+      isAdmin: data['isAdmin'] as bool? ?? false,
+      isLevelVerified: data['isLevelVerified'] as bool? ?? false,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'email': email,
+      'name': name,
+      'level': level,
+      'nationality': nationality,
+      'preferredSide': preferredSide,
+      'profileImageUrl': profileImageUrl,
+      'isAdmin': isAdmin,
+      'isLevelVerified': isLevelVerified,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'lastLoginAt':
+          lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
+    };
+  }
+
+  UserModel copyWith({
+    String? email,
+    String? name,
+    double? level,
+    String? nationality,
+    String? preferredSide,
+    String? profileImageUrl,
+    bool? isAdmin,
+    bool? isLevelVerified,
+    DateTime? lastLoginAt,
+  }) {
+    return UserModel(
+      id: id,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      level: level ?? this.level,
+      nationality: nationality ?? this.nationality,
+      preferredSide: preferredSide ?? this.preferredSide,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      isAdmin: isAdmin ?? this.isAdmin,
+      isLevelVerified: isLevelVerified ?? this.isLevelVerified,
+      createdAt: createdAt,
+      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+    );
+  }
+}
+import '../match/match_result.dart';
+import '../match/achievement.dart';
+
+class PlayerStatistics {
+  int wins;
+  int losses;
+  int draws;
+  int setsWon;
+  int setsLost;
+  int gamesWon;
+  int gamesLost;
+  List<String> recentMatches;
+  List<MatchResult> recentResults;
+  double winRate;
+  double rating;
+  int currentStreak;
+  List<double> last10MatchesRating;
+  Map<String, int> partnershipMatches;
+  Map<String, double> partnershipWinRate;
+  List<Achievement> achievements;
+  DateTime? lastMatchDate;
+
+  PlayerStatistics({
+    this.wins = 0,
+    this.losses = 0,
+    this.draws = 0,
+    this.setsWon = 0,
+    this.setsLost = 0,
+    this.gamesWon = 0,
+    this.gamesLost = 0,
+    List<String>? recentMatches,
+    List<MatchResult>? recentResults,
+    this.winRate = 0.0,
+    this.rating = 0.0,
+    this.currentStreak = 0,
+    List<double>? last10MatchesRating,
+    Map<String, int>? partnershipMatches,
+    Map<String, double>? partnershipWinRate,
+    List<Achievement>? achievements,
+    this.lastMatchDate,
+  })  : recentMatches = recentMatches ?? [],
+        recentResults = recentResults ?? [],
+        last10MatchesRating = last10MatchesRating ?? [],
+        partnershipMatches = partnershipMatches ?? {},
+        partnershipWinRate = partnershipWinRate ?? {},
+        achievements = achievements ?? [];
+
+  factory PlayerStatistics.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return PlayerStatistics();
+
+    return PlayerStatistics(
+      wins: (map['wins'] as num?)?.toInt() ?? 0,
+      losses: (map['losses'] as num?)?.toInt() ?? 0,
+      draws: (map['draws'] as num?)?.toInt() ?? 0,
+      setsWon: (map['setsWon'] as num?)?.toInt() ?? 0,
+      setsLost: (map['setsLost'] as num?)?.toInt() ?? 0,
+      gamesWon: (map['gamesWon'] as num?)?.toInt() ?? 0,
+      gamesLost: (map['gamesLost'] as num?)?.toInt() ?? 0,
+      recentMatches: (map['recentMatches'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      recentResults: (map['recentResults'] as List<dynamic>?)
+              ?.map((e) => MatchResult.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      winRate: (map['winRate'] as num?)?.toDouble() ?? 0.0,
+      rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
+      currentStreak: (map['currentStreak'] as num?)?.toInt() ?? 0,
+      last10MatchesRating: (map['last10MatchesRating'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          [],
+      partnershipMatches: (map['partnershipMatches'] as Map<String, dynamic>?)
+              ?.map((key, value) => MapEntry(key, (value as num).toInt())) ??
+          {},
+      partnershipWinRate: (map['partnershipWinRate'] as Map<String, dynamic>?)
+              ?.map((key, value) => MapEntry(key, (value as num).toDouble())) ??
+          {},
+      achievements: (map['achievements'] as List<dynamic>?)
+              ?.map((e) => Achievement.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      lastMatchDate: map['lastMatchDate'] != null
+          ? DateTime.parse(map['lastMatchDate'] as String)
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'wins': wins,
+      'losses': losses,
+      'draws': draws,
+      'setsWon': setsWon,
+      'setsLost': setsLost,
+      'gamesWon': gamesWon,
+      'gamesLost': gamesLost,
+      'recentMatches': recentMatches,
+      'recentResults': recentResults.map((r) => r.toMap()).toList(),
+      'winRate': winRate,
+      'rating': rating,
+      'currentStreak': currentStreak,
+      'last10MatchesRating': last10MatchesRating,
+      'partnershipMatches': partnershipMatches,
+      'partnershipWinRate': partnershipWinRate,
+      'achievements': achievements.map((a) => a.toMap()).toList(),
+      'lastMatchDate': lastMatchDate?.toIso8601String(),
+    };
+  }
+
+  void updateStats(MatchResult result) {
+    if (result.isWin) {
+      wins++;
+      currentStreak = currentStreak > 0 ? currentStreak + 1 : 1;
+    } else if (result.isDraw) {
+      draws++;
+      currentStreak = 0;
+    } else {
+      losses++;
+      currentStreak = currentStreak < 0 ? currentStreak - 1 : -1;
+    }
+
+    setsWon += result.setsWon;
+    setsLost += result.setsLost;
+    gamesWon += result.gamesWon;
+    gamesLost += result.gamesLost;
+
+    winRate = totalMatches > 0 ? (wins / totalMatches) * 100 : 0;
+    rating += result.ratingChange;
+
+    recentResults.insert(0, result);
+    if (recentResults.length > 10) {
+      recentResults = recentResults.sublist(0, 10);
+    }
+
+    recentMatches.insert(0, result.isWin ? 'W' : (result.isDraw ? 'D' : 'L'));
+    if (recentMatches.length > 10) {
+      recentMatches = recentMatches.sublist(0, 10);
+    }
+
+    last10MatchesRating.insert(0, rating);
+    if (last10MatchesRating.length > 10) {
+      last10MatchesRating = last10MatchesRating.sublist(0, 10);
+    }
+
+    lastMatchDate = DateTime.now();
+    _checkAchievements(result);
+  }
+
+  void _checkAchievements(MatchResult result) {
+    if (currentStreak >= 5) {
+      achievements.add(Achievement.createAchievement(
+        type: AchievementType.winStreak,
+        value: currentStreak,
+      ));
+    }
+
+    if (wins == 1) {
+      achievements.add(Achievement.createAchievement(
+        type: AchievementType.firstWin,
+      ));
+    }
+
+    if (result.hasPerfectSet) {
+      achievements.add(Achievement.createAchievement(
+        type: AchievementType.perfectSet,
+      ));
+    }
+  }
+
+  void updatePartnershipStats(String partnerName, bool isWin) {
+    partnershipMatches.update(
+      partnerName,
+      (value) => value + 1,
+      ifAbsent: () => 1,
+    );
+
+    final currentWins = partnershipWinRate[partnerName] ?? 0;
+    final totalMatches = partnershipMatches[partnerName] ?? 0;
+
+    if (isWin) {
+      partnershipWinRate[partnerName] =
+          ((currentWins * totalMatches) + 100) / (totalMatches + 1);
+    } else {
+      partnershipWinRate[partnerName] =
+          (currentWins * totalMatches) / (totalMatches + 1);
+    }
+  }
+
+  int get totalMatches => wins + losses + draws;
+}
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+enum MatchOutcome {
+  win,
+  loss,
+  draw;
+
+  bool get isWin => this == MatchOutcome.win;
+  bool get isLoss => this == MatchOutcome.loss;
+  bool get isDraw => this == MatchOutcome.draw;
+
+  String toDisplayString() {
+    switch (this) {
+      case MatchOutcome.win:
+        return 'Win';
+      case MatchOutcome.loss:
+        return 'Loss';
+      case MatchOutcome.draw:
+        return 'Draw';
+    }
+  }
+}
+
+class MatchResult {
+  final String matchId;
+  final DateTime date;
+  final MatchOutcome outcome;
+  final int setsWon;
+  final int setsLost;
+  final int gamesWon;
+  final int gamesLost;
+  final bool hasPerfectSet;
+  final String opponent;
+  final double ratingChange;
+
+  const MatchResult({
+    required this.matchId,
+    required this.date,
+    required this.outcome,
+    required this.setsWon,
+    required this.setsLost,
+    required this.gamesWon,
+    required this.gamesLost,
+    this.hasPerfectSet = false,
+    required this.opponent,
+    this.ratingChange = 0.0,
+  });
+
+  bool get isWin => outcome == MatchOutcome.win;
+  bool get isLoss => outcome == MatchOutcome.loss;
+  bool get isDraw => outcome == MatchOutcome.draw;
+
+  int get totalGames => gamesWon + gamesLost;
+  int get gamesDifference => gamesWon - gamesLost;
+  int get setsDifference => setsWon - setsLost;
+
+  double get winPercentage {
+    if (totalGames == 0) return 0;
+    return (gamesWon / totalGames) * 100;
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'matchId': matchId,
+      'date': Timestamp.fromDate(date),
+      'outcome': outcome.toString(),
+      'setsWon': setsWon,
+      'setsLost': setsLost,
+      'gamesWon': gamesWon,
+      'gamesLost': gamesLost,
+      'hasPerfectSet': hasPerfectSet,
+      'opponent': opponent,
+      'ratingChange': ratingChange,
+    };
+  }
+
+  factory MatchResult.fromMap(Map<String, dynamic> map) {
+    return MatchResult(
+      matchId: map['matchId'] as String,
+      date: (map['date'] as Timestamp).toDate(),
+      outcome: MatchOutcome.values.firstWhere(
+        (e) => e.toString() == map['outcome'],
+        orElse: () => MatchOutcome.loss,
+      ),
+      setsWon: (map['setsWon'] as num).toInt(),
+      setsLost: (map['setsLost'] as num).toInt(),
+      gamesWon: (map['gamesWon'] as num).toInt(),
+      gamesLost: (map['gamesLost'] as num).toInt(),
+      hasPerfectSet: map['hasPerfectSet'] as bool? ?? false,
+      opponent: map['opponent'] as String,
+      ratingChange: (map['ratingChange'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  static MatchResult createFromScore({
+    required String matchId,
+    required int team1Sets,
+    required int team2Sets,
+    required List<int> team1Games,
+    required List<int> team2Games,
+    required String opponent,
+    double ratingChange = 0.0,
+  }) {
+    final now = DateTime.now();
+    final setsWon = team1Sets;
+    final setsLost = team2Sets;
+    final gamesWon = team1Games.fold<int>(0, (total, game) => total + game);
+    final gamesLost = team2Games.fold<int>(0, (total, game) => total + game);
+
+    MatchOutcome outcome;
+    if (team1Sets > team2Sets) {
+      outcome = MatchOutcome.win;
+    } else if (team1Sets < team2Sets) {
+      outcome = MatchOutcome.loss;
+    } else {
+      outcome = MatchOutcome.draw;
+    }
+
+    final hasPerfectSet = team1Games.contains(6) && team2Games.contains(0);
+
+    return MatchResult(
+      matchId: matchId,
+      date: now,
+      outcome: outcome,
+      setsWon: setsWon,
+      setsLost: setsLost,
+      gamesWon: gamesWon,
+      gamesLost: gamesLost,
+      hasPerfectSet: hasPerfectSet,
+      opponent: opponent,
+      ratingChange: ratingChange,
+    );
+  }
+}
+import 'package:flutter/material.dart';
+
+enum AchievementType {
+  winStreak, // Win streak achievement
+  firstWin, // First victory
+  perfectSet, // Won a set 6-0
+  comeback, // Won after losing first set
+  tournament, // Tournament victory
+  undefeatedStreak, // Maintained undefeated streak
+  cleanSweep, // Won all matches in tournament
+  giantKiller, // Beat a higher ranked player
+  rapidRiser, // Quick improvement in ranking
+  ironMan, // Many matches in short time
+  popularPlayer, // Played with different partners
+  clutchPlayer, // Won close matches
+  dominantDisplay, // Big score differences
+  seasonChampion, // Top of the league
+  monthlyMVP, // Best player of the month
+  rookieOfTheYear, // Best new player
+  improvedRating, // Rating milestone
+  consistentPlayer // Regular player
+}
+
+enum AchievementRarity {
+  common,
+  uncommon,
+  rare,
+  epic,
+  legendary;
+
+  Color get color {
+    switch (this) {
+      case AchievementRarity.common:
+        return Colors.grey;
+      case AchievementRarity.uncommon:
+        return Colors.green;
+      case AchievementRarity.rare:
+        return Colors.blue;
+      case AchievementRarity.epic:
+        return Colors.purple;
+      case AchievementRarity.legendary:
+        return Colors.orange;
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case AchievementRarity.common:
+        return 'Common';
+      case AchievementRarity.uncommon:
+        return 'Uncommon';
+      case AchievementRarity.rare:
+        return 'Rare';
+      case AchievementRarity.epic:
+        return 'Epic';
+      case AchievementRarity.legendary:
+        return 'Legendary';
+    }
+  }
+}
+
+class Achievement {
+  final String id;
+  final String title;
+  final String description;
+  final AchievementType type;
+  final AchievementRarity rarity;
+  final DateTime dateEarned;
+  final int? progress;
+  final int? target;
+  final String? icon;
+
+  const Achievement({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.type,
+    required this.rarity,
+    required this.dateEarned,
+    this.progress,
+    this.target,
+    this.icon,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'type': type.toString(),
+      'rarity': rarity.toString(),
+      'dateEarned': dateEarned.toIso8601String(),
+      'progress': progress,
+      'target': target,
+      'icon': icon,
+    };
+  }
+
+  factory Achievement.fromMap(Map<String, dynamic> map) {
+    return Achievement(
+      id: map['id'] as String,
+      title: map['title'] as String,
+      description: map['description'] as String,
+      type: AchievementType.values.firstWhere(
+        (e) => e.toString() == map['type'],
+        orElse: () => AchievementType.firstWin,
+      ),
+      rarity: AchievementRarity.values.firstWhere(
+        (e) => e.toString() == map['rarity'],
+        orElse: () => AchievementRarity.common,
+      ),
+      dateEarned: DateTime.parse(map['dateEarned'] as String),
+      progress: map['progress'] as int?,
+      target: map['target'] as int?,
+      icon: map['icon'] as String?,
+    );
+  }
+
+  static Achievement createAchievement({
+    required AchievementType type,
+    int? value,
+    int? target,
+  }) {
+    final achievementData = _getAchievementData(type, value, target);
+    return Achievement(
+      id: '${type.toString()}_${DateTime.now().millisecondsSinceEpoch}',
+      title: achievementData.title,
+      description: achievementData.description,
+      type: type,
+      rarity: achievementData.rarity,
+      dateEarned: DateTime.now(),
+      progress: value,
+      target: target,
+      icon: achievementData.icon,
+    );
+  }
+
+  static AchievementData _getAchievementData(
+    AchievementType type,
+    int? value,
+    int? target,
+  ) {
+    switch (type) {
+      case AchievementType.winStreak:
+        return AchievementData(
+          title: '${value ?? 5} Win Streak!',
+          description: 'Won ${value ?? 5} matches in a row',
+          rarity: value != null && value >= 10
+              ? AchievementRarity.legendary
+              : AchievementRarity.rare,
+          icon: 'trophy',
+        );
+
+      case AchievementType.firstWin:
+        return const AchievementData(
+          title: 'First Victory',
+          description: 'Won your first match',
+          rarity: AchievementRarity.common,
+          icon: 'star',
+        );
+
+      case AchievementType.perfectSet:
+        return const AchievementData(
+          title: 'Perfect Set',
+          description: 'Won a set 6-0',
+          rarity: AchievementRarity.rare,
+          icon: 'crown',
+        );
+
+      case AchievementType.tournament:
+        return const AchievementData(
+          title: 'Tournament Champion',
+          description: 'Won a tournament',
+          rarity: AchievementRarity.legendary,
+          icon: 'trophy',
+        );
+
+      case AchievementType.consistentPlayer:
+        return AchievementData(
+          title: 'Consistent Player',
+          description: 'Played ${value ?? 10} matches in a month',
+          rarity: AchievementRarity.uncommon,
+          icon: 'calendar',
+        );
+
+      case AchievementType.monthlyMVP:
+        return const AchievementData(
+          title: 'Monthly MVP',
+          description: 'Best performing player of the month',
+          rarity: AchievementRarity.epic,
+          icon: 'medal',
+        );
+
+      default:
+        return AchievementData(
+          title: type.toString().split('.').last,
+          description: 'Achievement unlocked!',
+          rarity: AchievementRarity.common,
+          icon: 'star',
+        );
+    }
+  }
+
+  bool get isCompleted =>
+      progress != null && target != null && progress! >= target!;
+
+  double get progressPercentage {
+    if (progress == null || target == null) return 1.0;
+    return progress! / target!;
+  }
+
+  String get formattedDate {
+    return '${dateEarned.day}/${dateEarned.month}/${dateEarned.year}';
+  }
+
+  bool get isRecent {
+    final now = DateTime.now();
+    return dateEarned.isAfter(now.subtract(const Duration(days: 7)));
+  }
+
+  IconData getIconData() {
+    switch (icon) {
+      case 'trophy':
+        return Icons.emoji_events;
+      case 'star':
+        return Icons.star;
+      case 'crown':
+        return Icons.workspace_premium;
+      case 'medal':
+        return Icons.military_tech;
+      case 'calendar':
+        return Icons.calendar_today;
+      default:
+        return Icons.emoji_events;
+    }
+  }
+}
+
+class AchievementData {
+  final String title;
+  final String description;
+  final AchievementRarity rarity;
+  final String icon;
+
+  const AchievementData({
+    required this.title,
+    required this.description,
+    required this.rarity,
+    required this.icon,
+  });
+}
+
+// Example usage:
+class AchievementService {
+  static bool checkForAchievements(
+    int wins,
+    int streak,
+    int matchesThisMonth,
+    double rating,
+    bool wonTournament,
+  ) {
+    List<Achievement> newAchievements = [];
+
+    // Check win streak
+    if (streak >= 5) {
+      newAchievements.add(Achievement.createAchievement(
+        type: AchievementType.winStreak,
+        value: streak,
+      ));
+    }
+
+    // Check first win
+    if (wins == 1) {
+      newAchievements.add(Achievement.createAchievement(
+        type: AchievementType.firstWin,
+      ));
+    }
+
+    // Check consistent player
+    if (matchesThisMonth >= 10) {
+      newAchievements.add(Achievement.createAchievement(
+        type: AchievementType.consistentPlayer,
+        value: matchesThisMonth,
+      ));
+    }
+
+    // Check tournament win
+    if (wonTournament) {
+      newAchievements.add(Achievement.createAchievement(
+        type: AchievementType.tournament,
+      ));
+    }
+
+    return newAchievements.isNotEmpty;
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'statistics/player_statistics.dart';
+import 'player_avatar.dart';
+import 'match/match_result.dart';
+
+class Player {
+  final String id;
+  final String name;
+  final double rating;
+  final int rank;
+  final String profileImage;
+  final DateTime createdAt;
+  Map<String, String> signedTimeslots;
+  final PlayerStatistics statistics;
+
+  Player({
+    required this.id,
+    required this.name,
+    required this.rating,
+    required this.rank,
+    required this.profileImage,
+    required this.createdAt,
+    Map<String, String>? signedTimeslots,
+    PlayerStatistics? statistics,
+  })  : signedTimeslots = signedTimeslots ?? {},
+        statistics = statistics ?? PlayerStatistics();
+
+  // Add the unknown factory constructor
+  factory Player.unknown() {
+    return Player(
+      id: 'unknown',
+      name: 'Unknown Player',
+      rating: 0,
+      rank: 0,
+      profileImage: 'assets/images/profile.png',
+      createdAt: DateTime.now(),
+      signedTimeslots: {},
+      statistics: PlayerStatistics(),
+    );
+  }
+
+  factory Player.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+
+    // Safely extract Timestamp
+    DateTime createdAtDate;
+    try {
+      createdAtDate =
+          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+    } catch (e) {
+      debugPrint('Error converting timestamp: $e');
+      createdAtDate = DateTime.now();
+    }
+
+    // Safely extract signedTimeslots
+    Map<String, String> timeslots = {};
+    try {
+      if (data['signedTimeslots'] != null) {
+        final slots = data['signedTimeslots'] as Map<dynamic, dynamic>;
+        timeslots = Map<String, String>.from(slots.map(
+          (key, value) => MapEntry(key.toString(), value.toString()),
+        ));
+      }
+    } catch (e) {
+      debugPrint('Error converting signedTimeslots: $e');
+    }
+
+    // Extract statistics
+    PlayerStatistics stats;
+    try {
+      stats =
+          PlayerStatistics.fromMap(data['statistics'] as Map<String, dynamic>?);
+    } catch (e) {
+      debugPrint('Error converting statistics: $e');
+      stats = PlayerStatistics();
+    }
+
+    return Player(
+      id: doc.id,
+      name: data['name']?.toString() ?? 'Unknown Player',
+      rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
+      rank: (data['rank'] as num?)?.toInt() ?? 0,
+      profileImage:
+          data['profileImage']?.toString() ?? 'assets/images/profile.png',
+      createdAt: createdAtDate,
+      signedTimeslots: timeslots,
+      statistics: stats,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'rating': rating,
+      'rank': rank,
+      'profileImage': profileImage,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'signedTimeslots': signedTimeslots,
+      'statistics': statistics.toMap(),
+    };
+  }
+
+  void updateMatchStats(MatchResult result) {
+    statistics.updateStats(result);
+  }
+
+  void signForTimeslot(String day, String timeslot) {
+    debugPrint('Signing $name for $timeslot on $day');
+    signedTimeslots[day] = timeslot;
+  }
+
+  bool isPlayEither(String day) {
+    return signedTimeslots[day] == 'Play Either';
+  }
+
+  Widget avatar({double size = 60}) {
+    return PlayerAvatar(player: this, size: size);
+  }
+}
+import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'player.dart';
+
+enum MatchStatus { scheduled, inProgress, completed, cancelled, waitingPlayers }
+
+class Score {
+  int sets;
+  List<int> games;
+
+  Score({
+    this.sets = 0,
+    List<int>? games,
+  }) : games = games ?? [];
+
+  Map<String, dynamic> toMap() {
+    return {
+      'sets': sets,
+      'games': games,
+    };
+  }
+
+  factory Score.fromMap(Map<String, dynamic> map) {
+    return Score(
+      sets: (map['sets'] as num?)?.toInt() ?? 0,
+      games: (map['games'] as List<dynamic>?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          [],
+    );
+  }
+
+  Score copyWith({
+    int? sets,
+    List<int>? games,
+  }) {
+    return Score(
+      sets: sets ?? this.sets,
+      games: games != null ? List<int>.from(games) : List<int>.from(this.games),
+    );
+  }
+}
+
+class Match {
+  final String id;
+  final DateTime date;
+  final String time;
+  final MatchStatus status;
+  final Map<String, Player?> players;
+  final Map<String, Score> score;
+  final DateTime createdAt;
+  final int availableSlots;
+
+  Match({
+    required this.id,
+    required this.date,
+    required this.time,
+    required this.status,
+    required this.players,
+    required this.score,
+    required this.createdAt,
+    this.availableSlots = 0,
+  });
+
+  Player? get team1Player1 => players['team1_player1'];
+  Player? get team1Player2 => players['team1_player2'];
+  Player? get team2Player1 => players['team2_player1'];
+  Player? get team2Player2 => players['team2_player2'];
+
+  Score? get team1Score => score['team1'];
+  Score? get team2Score => score['team2'];
+
+  bool get isComplete => status == MatchStatus.completed;
+  bool get needsPlayers => availableSlots > 0;
+
+  String? get winner {
+    if (!isComplete) return null;
+    final team1Sets = team1Score?.sets ?? 0;
+    final team2Sets = team2Score?.sets ?? 0;
+    if (team1Sets > team2Sets) return 'team1';
+    if (team2Sets > team1Sets) return 'team2';
+    return null;
+  }
+
+  factory Match.fromFirestore(DocumentSnapshot doc, List<Player> allPlayers) {
+    final data = doc.data() as Map<String, dynamic>;
+    Map<String, Player?> matchPlayers = {};
+
+    try {
+      final playersData = data['players'] as Map<String, dynamic>? ?? {};
+
+      // Process team1
+      final team1Data = playersData['team1'] as Map<String, dynamic>? ?? {};
+      final player1Ref = team1Data['player1'] as DocumentReference?;
+      final player2Ref = team1Data['player2'] as DocumentReference?;
+
+      // Process team2
+      final team2Data = playersData['team2'] as Map<String, dynamic>? ?? {};
+      final player3Ref = team2Data['player1'] as DocumentReference?;
+      final player4Ref = team2Data['player2'] as DocumentReference?;
+
+      // Safely find players
+      if (player1Ref != null) {
+        matchPlayers['team1_player1'] = allPlayers.firstWhere(
+          (p) => p.id == player1Ref.id,
+          orElse: () => Player.unknown(),
+        );
+      }
+
+      if (player2Ref != null) {
+        matchPlayers['team1_player2'] = allPlayers.firstWhere(
+          (p) => p.id == player2Ref.id,
+          orElse: () => Player.unknown(),
+        );
+      }
+
+      if (player3Ref != null) {
+        matchPlayers['team2_player1'] = allPlayers.firstWhere(
+          (p) => p.id == player3Ref.id,
+          orElse: () => Player.unknown(),
+        );
+      }
+
+      if (player4Ref != null) {
+        matchPlayers['team2_player2'] = allPlayers.firstWhere(
+          (p) => p.id == player4Ref.id,
+          orElse: () => Player.unknown(),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error processing players in Match.fromFirestore: $e');
+    }
+
+    return Match(
+      id: data['id'] as String? ?? doc.id,
+      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      time: data['time'] as String? ?? 'Later Timeslot',
+      status: MatchStatus.values.firstWhere(
+        (e) => e.toString().split('.').last == (data['status'] as String?),
+        orElse: () => MatchStatus.scheduled,
+      ),
+      players: matchPlayers,
+      score: {
+        'team1': Score.fromMap(
+            data['score']?['team1'] as Map<String, dynamic>? ??
+                {'sets': 0, 'games': []}),
+        'team2': Score.fromMap(
+            data['score']?['team2'] as Map<String, dynamic>? ??
+                {'sets': 0, 'games': []}),
+      },
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      availableSlots: (data['availableSlots'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    final firestore = FirebaseFirestore.instance;
+    return {
+      'id': id,
+      'date': Timestamp.fromDate(date),
+      'time': time,
+      'status': status.toString().split('.').last,
+      'players': {
+        'team1': {
+          'player1': team1Player1 != null
+              ? firestore.doc('players/${team1Player1!.id}')
+              : null,
+          'player2': team1Player2 != null
+              ? firestore.doc('players/${team1Player2!.id}')
+              : null,
+        },
+        'team2': {
+          'player1': team2Player1 != null
+              ? firestore.doc('players/${team2Player1!.id}')
+              : null,
+          'player2': team2Player2 != null
+              ? firestore.doc('players/${team2Player2!.id}')
+              : null,
+        },
+      },
+      'score': {
+        'team1': score['team1']!.toMap(),
+        'team2': score['team2']!.toMap(),
+      },
+      'createdAt': Timestamp.fromDate(createdAt),
+      'availableSlots': availableSlots,
+    };
+  }
+
+  Match copyWith({
+    String? id,
+    DateTime? date,
+    String? time,
+    MatchStatus? status,
+    Map<String, Player?>? players,
+    Map<String, Score>? score,
+    DateTime? createdAt,
+    int? availableSlots,
+  }) {
+    return Match(
+      id: id ?? this.id,
+      date: date ?? this.date,
+      time: time ?? this.time,
+      status: status ?? this.status,
+      players: players ?? Map<String, Player?>.from(this.players),
+      score: score ?? Map<String, Score>.from(this.score),
+      createdAt: createdAt ?? this.createdAt,
+      availableSlots: availableSlots ?? this.availableSlots,
+    );
+  }
+}
+// lib/models/game_state.dart
+
+import 'package:flutter/foundation.dart';
+import 'player.dart';
+import 'match/match_result.dart';
+
+class GameState extends ChangeNotifier {
+  List<Player> players = [];
+  List<Map<String, dynamic>> matches = [];
+
+  // Update match score
+  void updateMatchScore(
+    String matchId,
+    String playerKey,
+    String scoreType,
+    int value,
+  ) {
+    final matchIndex = int.tryParse(matchId);
+    if (matchIndex == null || matchIndex >= matches.length) return;
+
+    var match = matches[matchIndex];
+    var scores = match['score'] as Map<String, dynamic>?;
+    if (scores == null) return;
+
+    var playerScore = scores[playerKey] as Map<String, dynamic>?;
+    if (playerScore == null) return;
+
+    if (playerScore[scoreType] != null) {
+      playerScore[scoreType] = value;
+      _updatePlayerStats(match, playerKey);
+      notifyListeners();
+    }
+  }
+
+  // Update player stats after a match
+  void _updatePlayerStats(Map<String, dynamic> match, String playerKey) {
+    try {
+      // Safely get player data
+      final playerData = match[playerKey] as Map<String, dynamic>?;
+      final playerName = playerData?['name'] as String?;
+      if (playerName == null) return;
+
+      // Find player
+      final player = players.firstWhere(
+        (p) => p.name == playerName,
+        orElse: () => throw Exception('Player not found'),
+      );
+
+      // Safely extract scores
+      final scores = match['score'] as Map<String, dynamic>?;
+      final playerScore = scores?[playerKey] as Map<String, dynamic>?;
+      final opponentKey = playerKey == 'team1' ? 'team2' : 'team1';
+      final opponentScore = scores?[opponentKey] as Map<String, dynamic>?;
+
+      if (playerScore == null || opponentScore == null) return;
+
+      // Calculate stats
+      final setsWon = playerScore['sets'] as int? ?? 0;
+      final setsLost = opponentScore['sets'] as int? ?? 0;
+      final playerGames = playerScore['games'] as List<dynamic>? ?? [];
+      final opponentGames = opponentScore['games'] as List<dynamic>? ?? [];
+      final totalGamesWon =
+          playerGames.fold<int>(0, (sum, game) => sum + (game as int? ?? 0));
+      final totalGamesLost =
+          opponentGames.fold<int>(0, (sum, game) => sum + (game as int? ?? 0));
+
+      // Determine match outcome
+      final outcome = setsWon > setsLost
+          ? MatchOutcome.win
+          : setsWon < setsLost
+              ? MatchOutcome.loss
+              : MatchOutcome.draw;
+
+      // Check for perfect set
+      final hasPerfectSet =
+          playerGames.contains(6) && opponentGames.contains(0);
+
+      // Get opponent name
+      final opponentData = match[opponentKey] as Map<String, dynamic>?;
+      final opponentName = opponentData?['name'] as String? ?? 'Unknown';
+
+      // Create match result
+      final result = MatchResult(
+        matchId: match['id']?.toString() ?? DateTime.now().toString(),
+        date: DateTime.now(),
+        outcome: outcome,
+        setsWon: setsWon,
+        setsLost: setsLost,
+        gamesWon: totalGamesWon,
+        gamesLost: totalGamesLost,
+        hasPerfectSet: hasPerfectSet,
+        opponent: opponentName,
+      );
+
+      // Update player stats
+      player.updateMatchStats(result);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error updating player stats: $e');
+    }
+  }
+
+  // Get matches for a specific player
+  List<Map<String, dynamic>> getMatchesForPlayer(String playerId) {
+    return matches.where((match) {
+      // Safely convert team1Players and team2Players to List<String>
+      final team1Players = (match['team1Players'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
+      final team2Players = (match['team2Players'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
+      return team1Players.contains(playerId) || team2Players.contains(playerId);
+    }).toList();
+  }
+
+  // Get player's team key in a match
+  String? _getPlayerTeamKey(Map<String, dynamic> match, String playerId) {
+    final team1Players = (match['team1Players'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+    if (team1Players.contains(playerId)) return 'team1';
+
+    final team2Players = (match['team2Players'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+    if (team2Players.contains(playerId)) return 'team2';
+
+    return null;
+  }
+
+  // Get recent matches for a player
+  List<Map<String, dynamic>> getRecentMatches(String playerId,
+      {int limit = 5}) {
+    final playerMatches = getMatchesForPlayer(playerId);
+    playerMatches.sort((a, b) {
+      final dateA =
+          DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime.now();
+      final dateB =
+          DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime.now();
+      return dateB.compareTo(dateA);
+    });
+    return playerMatches.take(limit).toList();
+  }
+
+  // Additional utility methods
+  void addMatch(Map<String, dynamic> match) {
+    matches.add(match);
+    notifyListeners();
+  }
+
+  Map<String, dynamic>? getMatch(int index) {
+    if (index >= 0 && index < matches.length) {
+      return matches[index];
+    }
+    return null;
+  }
+
+  void clearMatches() {
+    matches.clear();
+    notifyListeners();
+  }
+
+  void addPlayer(Player player) {
+    if (!players.any((p) => p.id == player.id)) {
+      players.add(player);
+      notifyListeners();
+    }
+  }
+
+  void removePlayer(String playerId) {
+    players.removeWhere((p) => p.id == playerId);
+    notifyListeners();
+  }
+
+  Player? getPlayerById(String id) {
+    try {
+      return players.firstWhere((p) => p.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void updatePlayer(Player updatedPlayer) {
+    final index = players.indexWhere((p) => p.id == updatedPlayer.id);
+    if (index != -1) {
+      players[index] = updatedPlayer;
+      notifyListeners();
+    }
+  }
+
+  List<Player> getPlayersByRank() {
+    final sortedPlayers = List<Player>.from(players);
+    sortedPlayers.sort((a, b) => b.rating.compareTo(a.rating));
+    return sortedPlayers;
+  }
+
+  double getPlayerWinRate(String playerId) {
+    final playerMatches = getMatchesForPlayer(playerId);
+    if (playerMatches.isEmpty) return 0.0;
+
+    final wins = playerMatches.where((match) {
+      final playerKey = _getPlayerTeamKey(match, playerId);
+      if (playerKey == null) return false;
+
+      final scores = match['score'] as Map<String, dynamic>?;
+      if (scores == null) return false;
+
+      final playerScore = scores[playerKey]['sets'] as int? ?? 0;
+      final opponentScore =
+          scores[playerKey == 'team1' ? 'team2' : 'team1']['sets'] as int? ?? 0;
+      return playerScore > opponentScore;
+    }).length;
+
+    return (wins / playerMatches.length) * 100;
+  }
+}
+import 'package:flutter/material.dart';
+import 'player.dart';
+
+class PlayerAvatar extends StatelessWidget {
+  final Player player;
+  final double size;
+
+  const PlayerAvatar({
+    super.key,
+    required this.player,
+    this.size = 60,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: _getBorderColor(),
+          width: size / 30,
+        ),
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          player.profileImage,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('Error loading player image: $error');
+            return Container(
+              color: Colors.grey[200],
+              child: Icon(
+                Icons.person,
+                size: size * 0.6,
+                color: Colors.grey[400],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Color _getBorderColor() {
+    if (player.rank >= 0 && player.rank < 15) {
+      return Colors.blue[900]!;
+    } else if (player.rank >= 15 && player.rank < 30) {
+      return Colors.blue[300]!;
+    } else if (player.rank >= 30 && player.rank < 50) {
+      return Colors.yellow;
+    } else if (player.rank >= 50 && player.rank < 70) {
+      return Colors.green;
+    } else if (player.rank >= 70 && player.rank < 90) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
+    }
+  }
+}
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'match/match_result.dart';
+import 'match/achievement.dart';
+
+class MatchStatistics {
+  int wins;
+  int losses;
+  int draws;
+  int setsWon;
+  int setsLost;
+  int gamesWon;
+  int gamesLost;
+  List<String> recentMatches;
+  List<MatchResult> recentResults;
+  double winRate;
+  double rating;
+  int currentStreak;
+  List<double> last10MatchesRating;
+  Map<String, int> partnershipMatches;
+  Map<String, double> partnershipWinRate;
+  List<Achievement> achievements;
+  DateTime lastMatchDate;
+
+  // Getters
+  int get totalMatches => wins + losses + draws;
+  double get gamesWinRate => gamesWon + gamesLost > 0
+      ? (gamesWon / (gamesWon + gamesLost)) * 100
+      : 0.0;
+  double get setsWinRate =>
+      setsWon + setsLost > 0 ? (setsWon / (setsWon + setsLost)) * 100 : 0.0;
+  bool get hasPlayed => totalMatches > 0;
+
+  MatchStatistics({
+    this.wins = 0,
+    this.losses = 0,
+    this.draws = 0,
+    this.setsWon = 0,
+    this.setsLost = 0,
+    this.gamesWon = 0,
+    this.gamesLost = 0,
+    List<String>? recentMatches,
+    List<MatchResult>? recentResults,
+    this.winRate = 0.0,
+    this.rating = 0.0,
+    this.currentStreak = 0,
+    List<double>? last10MatchesRating,
+    Map<String, int>? partnershipMatches,
+    Map<String, double>? partnershipWinRate,
+    List<Achievement>? achievements,
+    DateTime? lastMatchDate,
+  })  : recentMatches = recentMatches ?? [],
+        recentResults = recentResults ?? [],
+        last10MatchesRating = last10MatchesRating ?? [],
+        partnershipMatches = partnershipMatches ?? {},
+        partnershipWinRate = partnershipWinRate ?? {},
+        achievements = achievements ?? [],
+        lastMatchDate = lastMatchDate ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    try {
+      return {
+        'wins': wins,
+        'losses': losses,
+        'draws': draws,
+        'setsWon': setsWon,
+        'setsLost': setsLost,
+        'gamesWon': gamesWon,
+        'gamesLost': gamesLost,
+        'recentMatches': recentMatches,
+        'recentResults': recentResults.map((r) => r.toMap()).toList(),
+        'winRate': winRate,
+        'rating': rating,
+        'currentStreak': currentStreak,
+        'last10MatchesRating': last10MatchesRating,
+        'partnershipMatches': partnershipMatches,
+        'partnershipWinRate': partnershipWinRate,
+        'achievements': achievements.map((a) => a.toMap()).toList(),
+        'lastMatchDate': Timestamp.fromDate(lastMatchDate),
+      };
+    } catch (e) {
+      debugPrint('Error converting MatchStatistics to map: $e');
+      rethrow;
+    }
+  }
+
+  factory MatchStatistics.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return MatchStatistics();
+
+    try {
+      // Handle recent matches
+      List<String> recentMatchesList = [];
+      if (map['recentMatches'] != null) {
+        recentMatchesList =
+            List<String>.from(map['recentMatches'] as List<dynamic>);
+      }
+
+      // Handle recent results
+      List<MatchResult> recentResultsList = [];
+      if (map['recentResults'] != null) {
+        recentResultsList = (map['recentResults'] as List<dynamic>)
+            .map((e) => MatchResult.fromMap(e as Map<String, dynamic>))
+            .toList();
+      }
+
+      // Handle ratings history
+      List<double> ratingHistory = [];
+      if (map['last10MatchesRating'] != null) {
+        ratingHistory = (map['last10MatchesRating'] as List<dynamic>)
+            .map((e) => (e as num).toDouble())
+            .toList();
+      }
+
+      // Handle partnership matches
+      Map<String, int> partnershipMatchesMap = {};
+      if (map['partnershipMatches'] != null) {
+        partnershipMatchesMap =
+            (map['partnershipMatches'] as Map<String, dynamic>).map(
+          (key, value) => MapEntry(key, (value as num).toInt()),
+        );
+      }
+
+      // Handle partnership win rates
+      Map<String, double> partnershipWinRateMap = {};
+      if (map['partnershipWinRate'] != null) {
+        partnershipWinRateMap =
+            (map['partnershipWinRate'] as Map<String, dynamic>).map(
+          (key, value) => MapEntry(key, (value as num).toDouble()),
+        );
+      }
+
+      // Handle achievements
+      List<Achievement> achievementsList = [];
+      if (map['achievements'] != null) {
+        achievementsList = (map['achievements'] as List<dynamic>)
+            .map((e) => Achievement.fromMap(e as Map<String, dynamic>))
+            .toList();
+      }
+
+      return MatchStatistics(
+        wins: (map['wins'] as num?)?.toInt() ?? 0,
+        losses: (map['losses'] as num?)?.toInt() ?? 0,
+        draws: (map['draws'] as num?)?.toInt() ?? 0,
+        setsWon: (map['setsWon'] as num?)?.toInt() ?? 0,
+        setsLost: (map['setsLost'] as num?)?.toInt() ?? 0,
+        gamesWon: (map['gamesWon'] as num?)?.toInt() ?? 0,
+        gamesLost: (map['gamesLost'] as num?)?.toInt() ?? 0,
+        recentMatches: recentMatchesList,
+        recentResults: recentResultsList,
+        winRate: (map['winRate'] as num?)?.toDouble() ?? 0.0,
+        rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
+        currentStreak: (map['currentStreak'] as num?)?.toInt() ?? 0,
+        last10MatchesRating: ratingHistory,
+        partnershipMatches: partnershipMatchesMap,
+        partnershipWinRate: partnershipWinRateMap,
+        achievements: achievementsList,
+        lastMatchDate:
+            (map['lastMatchDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
+    } catch (e) {
+      debugPrint('Error creating MatchStatistics from map: $e');
+      return MatchStatistics(); // Return default statistics on error
+    }
+  }
+
+  void updateStats(MatchResult result) {
+    try {
+      // Update wins/losses/draws
+      if (result.isWin) {
+        wins++;
+        currentStreak = currentStreak > 0 ? currentStreak + 1 : 1;
+        recentMatches.insert(0, 'W');
+      } else if (result.isDraw) {
+        draws++;
+        currentStreak = 0;
+        recentMatches.insert(0, 'D');
+      } else {
+        losses++;
+        currentStreak = currentStreak < 0 ? currentStreak - 1 : -1;
+        recentMatches.insert(0, 'L');
+      }
+
+      // Keep only last 5 recent matches
+      if (recentMatches.length > 5) {
+        recentMatches = recentMatches.sublist(0, 5);
+      }
+
+      // Update match stats
+      setsWon += result.setsWon;
+      setsLost += result.setsLost;
+      gamesWon += result.gamesWon;
+      gamesLost += result.gamesLost;
+
+      // Update win rate
+      winRate = totalMatches > 0 ? (wins / totalMatches) * 100 : 0;
+
+      // Update rating with change
+      rating += result.ratingChange;
+
+      // Add to recent results
+      recentResults.insert(0, result);
+      if (recentResults.length > 10) {
+        recentResults = recentResults.sublist(0, 10);
+      }
+
+      // Update last match date
+      lastMatchDate = DateTime.now();
+
+      // Track rating history
+      last10MatchesRating.insert(0, rating);
+      if (last10MatchesRating.length > 10) {
+        last10MatchesRating = last10MatchesRating.sublist(0, 10);
+      }
+
+      // Check for achievements
+      _checkForAchievements(result);
+    } catch (e) {
+      debugPrint('Error updating statistics: $e');
+      rethrow;
+    }
+  }
+
+  void updatePartnershipStats(String partnerName, bool isWin) {
+    try {
+      partnershipMatches.update(
+        partnerName,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+
+      final wins = partnershipWinRate[partnerName] ?? 0;
+      final total = partnershipMatches[partnerName] ?? 0;
+
+      if (isWin) {
+        partnershipWinRate[partnerName] = ((wins * total) + 100) / (total + 1);
+      } else {
+        partnershipWinRate[partnerName] = (wins * total) / (total + 1);
+      }
+
+      // Check for partnership achievements
+      _checkPartnershipAchievements(partnerName);
+    } catch (e) {
+      debugPrint('Error updating partnership stats: $e');
+      rethrow;
+    }
+  }
+
+  void _checkForAchievements(MatchResult result) {
+    // Win streak achievements
+    if (currentStreak >= 5) {
+      achievements.add(Achievement.createAchievement(
+        type: AchievementType.winStreak,
+        value: currentStreak,
+      ));
+    }
+
+    // First win achievement
+    if (wins == 1) {
+      achievements.add(Achievement.createAchievement(
+        type: AchievementType.firstWin,
+      ));
+    }
+
+    // Perfect set achievement
+    if (result.hasPerfectSet) {
+      achievements.add(Achievement.createAchievement(
+        type: AchievementType.perfectSet,
+      ));
+    }
+  }
+
+  void _checkPartnershipAchievements(String partnerName) {
+    final matchesWithPartner = partnershipMatches[partnerName] ?? 0;
+    final winRateWithPartner = partnershipWinRate[partnerName] ?? 0.0;
+
+    // Add partnership-based achievements here
+    if (matchesWithPartner >= 10 && winRateWithPartner >= 70) {
+      achievements.add(Achievement.createAchievement(
+        type: AchievementType.popularPlayer,
+      ));
+    }
+  }
+
+  // Helper method to get form string
+  String getFormString() {
+    return recentMatches.join('-');
+  }
+
+  // Helper method to get rating trend
+  double getRatingTrend() {
+    if (last10MatchesRating.length < 2) return 0;
+    return last10MatchesRating.first - last10MatchesRating.last;
+  }
+}
+// lib/models/match_scoring.dart
+
+class MatchScoring {
+  final Map<String, SetScore> teamScores = {
+    'team1': SetScore(),
+    'team2': SetScore(),
+  };
+
+  bool isMatchComplete = false;
+  String? winner;
+}
+
+class SetScore {
+  int sets;
+  List<int> games;
+
+  SetScore({
+    this.sets = 0,
+    this.games = const [],
+  });
+
+  bool isValidSet(int team1Games, int team2Games) {
+    // One team must have at least 6 games
+    if (team1Games < 6 && team2Games < 6) return false;
+
+    // Regular set win (6-0 to 6-4)
+    if (team1Games == 6 && team2Games <= 4) return true;
+    if (team2Games == 6 && team1Games <= 4) return true;
+
+    // 7-5 win
+    if (team1Games == 7 && team2Games == 5) return true;
+    if (team2Games == 7 && team1Games == 5) return true;
+
+    // 7-6 tiebreak win
+    if (team1Games == 7 && team2Games == 6) return true;
+    if (team2Games == 7 && team1Games == 6) return true;
+
+    return false;
+  }
+}

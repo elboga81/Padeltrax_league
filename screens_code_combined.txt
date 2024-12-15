@@ -1,0 +1,4662 @@
+import 'package:flutter/material.dart';
+import '../../models/player.dart';
+import 'widgets/stats_overview_tab.dart';
+import 'widgets/stats_achievements_tab.dart';
+import 'widgets/stats_partnerships_tab.dart';
+
+class PlayerStatisticsScreen extends StatelessWidget {
+  final List<Player> players;
+
+  const PlayerStatisticsScreen({
+    Key? key,
+    required this.players,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          Container(
+            color: Theme.of(context).primaryColor,
+            child: const TabBar(
+              tabs: [
+                Tab(text: 'Overview'),
+                Tab(text: 'Achievements'),
+                Tab(text: 'Partnerships'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                StatsOverviewTab(players: players),
+                StatsAchievementsTab(players: players),
+                StatsPartnershipsTab(players: players),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+// lib/screens/statistics/widgets/stats_partnerships_tab.dart
+
+import 'package:flutter/material.dart';
+import 'package:padeltrax_app/models/player.dart';
+import 'package:fl_chart/fl_chart.dart';
+
+class StatsPartnershipsTab extends StatelessWidget {
+  final List<Player> players;
+
+  const StatsPartnershipsTab({
+    Key? key,
+    required this.players,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: players.length,
+      itemBuilder: (context, playerIndex) {
+        final player = players[playerIndex];
+        final partnershipStats = player.statistics.partnershipMatches;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Player Header
+              ListTile(
+                leading: player.avatar(size: 48),
+                title: Text(
+                  player.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  '${partnershipStats.length} Partners',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+
+              // Partnership List
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: partnershipStats.length,
+                itemBuilder: (context, index) {
+                  final partnerName = partnershipStats.keys.elementAt(index);
+                  final matches = partnershipStats[partnerName] ?? 0;
+                  final winRate =
+                      player.statistics.partnershipWinRate[partnerName] ?? 0.0;
+
+                  return _buildPartnershipCard(
+                    partnerName: partnerName,
+                    matches: matches,
+                    winRate: winRate,
+                  );
+                },
+              ),
+
+              if (partnershipStats.isNotEmpty)
+                _buildPartnershipChart(player, partnershipStats),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPartnershipChart(
+      Player player, Map<String, int> partnershipStats) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Partnership Win Rates',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 200,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: 100,
+                barTouchData: BarTouchData(enabled: true),
+                titlesData: FlTitlesData(
+                  show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        if (value.toInt() >= partnershipStats.length) {
+                          return const Text('');
+                        }
+                        return RotatedBox(
+                          quarterTurns: 1,
+                          child: Text(
+                            partnershipStats.keys
+                                .elementAt(value.toInt())
+                                .split(' ')[0],
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                barGroups: partnershipStats.entries
+                    .map((entry) => BarChartGroupData(
+                          x: partnershipStats.keys.toList().indexOf(entry.key),
+                          barRods: [
+                            BarChartRodData(
+                              toY: (player.statistics
+                                          .partnershipWinRate[entry.key] ??
+                                      0) *
+                                  100,
+                              color: Colors.blue,
+                              width: 20,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(4),
+                              ),
+                            ),
+                          ],
+                        ))
+                    .toList(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPartnershipCard({
+    required String partnerName,
+    required int matches,
+    required double winRate,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.people, color: Colors.blue),
+      ),
+      title: Text(partnerName),
+      subtitle: Text('$matches matches played'),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: _getWinRateColor(winRate).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          '${(winRate * 100).toStringAsFixed(1)}%',
+          style: TextStyle(
+            color: _getWinRateColor(winRate),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getWinRateColor(double winRate) {
+    if (winRate >= 0.7) return Colors.green;
+    if (winRate >= 0.5) return Colors.blue;
+    if (winRate >= 0.3) return Colors.orange;
+    return Colors.red;
+  }
+}
+// lib/screens/statistics/widgets/stats_overview_tab.dart
+
+import 'package:flutter/material.dart';
+import 'package:padeltrax_app/models/player.dart';
+import 'stats_card.dart';
+import 'recent_form_display.dart';
+import 'rating_chart.dart';
+
+class StatsOverviewTab extends StatelessWidget {
+  final List<Player> players;
+
+  const StatsOverviewTab({
+    Key? key,
+    required this.players,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: players.length,
+      itemBuilder: (context, index) {
+        final player = players[index];
+        final winRate = player.statistics.wins /
+            (player.statistics.totalMatches == 0
+                ? 1
+                : player.statistics.totalMatches) *
+            100;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Player Header
+                ListTile(
+                  leading: player.avatar(size: 48),
+                  title: Text(player.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('Rating: ${player.rating}'),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Stats Grid
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatsCard(
+                        title: 'Win Rate',
+                        value: '${winRate.toStringAsFixed(1)}%',
+                        trend: 5,
+                        isPositive: true,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: StatsCard(
+                        title: 'Total Matches',
+                        value: player.statistics.totalMatches.toString(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: StatsCard(
+                        title: 'Current Streak',
+                        value: player.statistics.currentStreak.toString(),
+                        trend: player.statistics.currentStreak,
+                        isPositive: player.statistics.currentStreak > 0,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Recent Form
+                RecentFormDisplay(
+                  recentResults: player.statistics.recentResults,
+                ),
+
+                const SizedBox(height: 16),
+
+                // Rating Chart
+                SizedBox(
+                  height: 200,
+                  child: RatingChart(
+                    ratingHistory: player.statistics.last10MatchesRating,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+// lib/screens/statistics/widgets/recent_form_display.dart
+
+import 'package:flutter/material.dart';
+import 'package:padeltrax_app/models/match/match_result.dart';
+
+class RecentFormDisplay extends StatelessWidget {
+  final List<MatchResult> recentResults;
+
+  const RecentFormDisplay({
+    Key? key,
+    required this.recentResults,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recent Form',
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: recentResults.take(5).map((result) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: result.isWin
+                      ? Colors.green
+                      : result.isDraw
+                          ? Colors.orange
+                          : Colors.red,
+                ),
+                child: Center(
+                  child: Text(
+                    result.isWin
+                        ? 'W'
+                        : result.isDraw
+                            ? 'D'
+                            : 'L',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+// lib/screens/statistics/widgets/stats_card.dart
+
+import 'package:flutter/material.dart';
+
+class StatsCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final int? trend;
+  final bool isPositive;
+
+  const StatsCard({
+    Key? key,
+    required this.title,
+    required this.value,
+    this.trend,
+    this.isPositive = true,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (trend != null) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  isPositive ? Icons.trending_up : Icons.trending_down,
+                  size: 16,
+                  color: isPositive ? Colors.green : Colors.red,
+                ),
+                Text(
+                  trend.toString(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isPositive ? Colors.green : Colors.red,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+// lib/screens/statistics/widgets/rating_chart.dart
+
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+
+class RatingChart extends StatelessWidget {
+  final List<double> ratingHistory;
+
+  const RatingChart({
+    Key? key,
+    required this.ratingHistory,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(show: true),
+        titlesData: FlTitlesData(show: true),
+        borderData: FlBorderData(show: true),
+        lineBarsData: [
+          LineChartBarData(
+            spots: ratingHistory.asMap().entries.map((entry) {
+              return FlSpot(entry.key.toDouble(), entry.value);
+            }).toList(),
+            isCurved: true,
+            color: Colors.blue,
+            barWidth: 3,
+            dotData: FlDotData(show: false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+// lib/screens/statistics/widgets/stats_achievements_tab.dart
+
+import 'package:flutter/material.dart';
+import 'package:padeltrax_app/models/player.dart';
+import 'package:padeltrax_app/models/match/achievement.dart';
+
+class StatsAchievementsTab extends StatelessWidget {
+  final List<Player> players;
+
+  const StatsAchievementsTab({
+    Key? key,
+    required this.players,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: players.length,
+      itemBuilder: (context, playerIndex) {
+        final player = players[playerIndex];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Player Header
+              ListTile(
+                leading: player.avatar(size: 48),
+                title: Text(
+                  player.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+
+              // Achievements Grid
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.5,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: player.statistics.achievements.length,
+                itemBuilder: (context, index) {
+                  final achievement = player.statistics.achievements[index];
+                  return _buildAchievementCard(achievement);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAchievementCard(Achievement achievement) {
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: () {}, // Could show achievement details
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: achievement.rarity.color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _getAchievementIcon(achievement.type),
+                      color: achievement.rarity.color,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      achievement.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                achievement.description,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              Text(
+                'Earned ${_formatDate(achievement.dateEarned)}',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[500],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _getAchievementIcon(AchievementType type) {
+    switch (type) {
+      case AchievementType.winStreak:
+        return Icons.bolt;
+      case AchievementType.perfectSet:
+        return Icons.star;
+      case AchievementType.comeback:
+        return Icons.trending_up;
+      case AchievementType.tournament:
+        return Icons.emoji_events;
+      default:
+        return Icons.emoji_events;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+}
+import 'package:flutter/material.dart';
+import '../../../models/player.dart';
+import '../../../models/statistics/player_statistics.dart';
+
+class PlayerStatisticsView extends StatelessWidget {
+  final List<Player> players;
+
+  const PlayerStatisticsView({
+    Key? key,
+    required this.players,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: players.length,
+      itemBuilder: (context, index) {
+        final player = players[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: player.avatar(size: 50),
+                  title: Text(
+                    player.name,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    'Rating: ${player.statistics.rating.toStringAsFixed(1)}',
+                  ),
+                ),
+                const Divider(),
+                _buildStatsRow(
+                  'Matches',
+                  '${player.statistics.totalMatches}',
+                  'Win Rate',
+                  '${player.statistics.winRate.toStringAsFixed(1)}%',
+                ),
+                _buildStatsRow(
+                  'Wins',
+                  player.statistics.wins.toString(),
+                  'Losses',
+                  player.statistics.losses.toString(),
+                ),
+                _buildStatsRow(
+                  'Sets Won',
+                  player.statistics.setsWon.toString(),
+                  'Sets Lost',
+                  player.statistics.setsLost.toString(),
+                ),
+                _buildStatsRow(
+                  'Games Won',
+                  player.statistics.gamesWon.toString(),
+                  'Games Lost',
+                  player.statistics.gamesLost.toString(),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Recent Form:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: player.statistics.recentMatches.map((result) {
+                    return Container(
+                      width: 30,
+                      height: 30,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: _getResultColor(result),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Center(
+                        child: Text(
+                          result,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatsRow(
+      String label1, String value1, String label2, String value2) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatItem(label1, value1),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildStatItem(label2, value2),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getResultColor(String result) {
+    switch (result) {
+      case 'W':
+        return Colors.green;
+      case 'D':
+        return Colors.orange;
+      case 'L':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+}
+import 'package:flutter/material.dart';
+import '../../../models/match/achievement.dart';
+
+class AchievementDisplay extends StatelessWidget {
+  final List<Achievement> achievements;
+  final bool showProgress;
+
+  const AchievementDisplay({
+    Key? key,
+    required this.achievements,
+    this.showProgress = true,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    if (achievements.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 1.5,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: achievements.length,
+      itemBuilder: (context, index) => _AchievementCard(
+        achievement: achievements[index],
+        showProgress: showProgress,
+        onTap: () => _showAchievementDetails(context, achievements[index]),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.emoji_events_outlined,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No achievements yet',
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Keep playing to unlock achievements!',
+            style: TextStyle(
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAchievementDetails(BuildContext context, Achievement achievement) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _AchievementDetailsSheet(achievement: achievement),
+    );
+  }
+}
+
+class _AchievementCard extends StatelessWidget {
+  final Achievement achievement;
+  final bool showProgress;
+  final VoidCallback onTap;
+
+  const _AchievementCard({
+    required this.achievement,
+    required this.showProgress,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                achievement.rarity.color.withOpacity(0.1),
+                achievement.rarity.color.withOpacity(0.05),
+              ],
+            ),
+          ),
+          child: Stack(
+            children: [
+              if (achievement.isRecent)
+                Positioned(
+                  right: -20,
+                  top: -20,
+                  child: Container(
+                    padding: const EdgeInsets.all(30),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Text(
+                      'NEW',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          achievement.getIconData(),
+                          color: achievement.rarity.color,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: achievement.rarity.color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: achievement.rarity.color.withOpacity(0.5),
+                            ),
+                          ),
+                          child: Text(
+                            achievement.rarity.label,
+                            style: TextStyle(
+                              color: achievement.rarity.color,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      achievement.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      achievement.description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (showProgress &&
+                        achievement.progress != null &&
+                        achievement.target != null)
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              LinearProgressIndicator(
+                                value: achievement.progressPercentage,
+                                backgroundColor: Colors.grey[200],
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  achievement.rarity.color,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${achievement.progress}/${achievement.target}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementDetailsSheet extends StatelessWidget {
+  final Achievement achievement;
+
+  const _AchievementDetailsSheet({
+    required this.achievement,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: achievement.rarity.color.withOpacity(0.1),
+                child: Icon(
+                  achievement.getIconData(),
+                  color: achievement.rarity.color,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      achievement.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: achievement.rarity.color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        achievement.rarity.label,
+                        style: TextStyle(
+                          color: achievement.rarity.color,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 16),
+          Text(
+            achievement.description,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[700],
+            ),
+          ),
+          if (achievement.progress != null && achievement.target != null) ...[
+            const SizedBox(height: 24),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Progress: ${achievement.progress}/${achievement.target}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: achievement.progressPercentage,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    achievement.rarity.color,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 8),
+              Text(
+                'Earned on ${achievement.formattedDate}',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+// match_header.dart
+import 'package:flutter/material.dart';
+import '../../../models/match.dart';
+
+class MatchHeader extends StatelessWidget {
+  final MatchStatus status;
+  final String time;
+
+  const MatchHeader({
+    Key? key,
+    required this.status,
+    required this.time,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: _getStatusColor(status),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _getStatusText(status),
+              style: TextStyle(
+                color: _getStatusColor(status),
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          time,
+          style: const TextStyle(
+            color: Colors.grey,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getStatusColor(MatchStatus status) {
+    switch (status) {
+      case MatchStatus.scheduled:
+        return Colors.blue;
+      case MatchStatus.inProgress:
+        return Colors.orange;
+      case MatchStatus.completed:
+        return Colors.green;
+      case MatchStatus.cancelled:
+        return Colors.red;
+    }
+  }
+
+  String _getStatusText(MatchStatus status) {
+    switch (status) {
+      case MatchStatus.scheduled:
+        return 'Scheduled';
+      case MatchStatus.inProgress:
+        return 'In Progress';
+      case MatchStatus.completed:
+        return 'Completed';
+      case MatchStatus.cancelled:
+        return 'Cancelled';
+    }
+  }
+}
+// lib/screens/match/components/score_board.dart
+
+import 'package:flutter/material.dart';
+import '../../../models/match_scoring.dart';
+
+class ScoreBoard extends StatelessWidget {
+  final MatchScoring scoring;
+  final Function(String team, int gameIndex) onScoreUpdate;
+  final bool isMatchComplete;
+
+  const ScoreBoard({
+    Key? key,
+    required this.scoring,
+    required this.onScoreUpdate,
+    this.isMatchComplete = false,
+  }) : super(key: key);
+
+  Widget _buildScoreBox(int score, Color color, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 24,
+        height: 24,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          score.toString(),
+          style: TextStyle(
+            color: color == Colors.grey.shade300 ? Colors.black : Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeamScore(String team) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Sets score
+        _buildScoreBox(
+          scoring.teamScores[team]!.sets,
+          Colors.blue.shade700,
+        ),
+        const SizedBox(width: 8),
+        // Games scores
+        ...List.generate(
+            3,
+            (index) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: _buildScoreBox(
+                    index < scoring.teamScores[team]!.games.length
+                        ? scoring.teamScores[team]!.games[index]
+                        : 0,
+                    Colors.grey.shade300,
+                    onTap: isMatchComplete
+                        ? null
+                        : () => onScoreUpdate(team, index),
+                  ),
+                )),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _buildTeamScore('team1'),
+        const SizedBox(height: 8),
+        _buildTeamScore('team2'),
+      ],
+    );
+  }
+}
+
+// Optional: Create a model class for individual score boxes
+class ScoreBoxConfig {
+  final int score;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const ScoreBoxConfig({
+    required this.score,
+    required this.color,
+    this.onTap,
+  });
+}
+
+// Optional: Enums for team identification
+enum Team { team1, team2 }
+
+// Optional: Score Box Types for better type safety
+enum ScoreBoxType { set, game }
+// lib/screens/match/components/match_status.dart
+
+import 'package:flutter/material.dart';
+
+class MatchStatus extends StatelessWidget {
+  final bool isComplete;
+  final String? winner;
+  final String? matchTime;
+
+  const MatchStatus({
+    Key? key,
+    required this.isComplete,
+    this.winner,
+    this.matchTime,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (matchTime != null) _buildTimeRow(),
+        if (isComplete) _buildWinnerStatus(),
+      ],
+    );
+  }
+
+  Widget _buildTimeRow() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          const Icon(
+            Icons.access_time,
+            size: 16,
+            color: Colors.grey,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            matchTime!,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWinnerStatus() {
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.emoji_events,
+            color: Colors.green,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${winner ?? "Team"} Wins!',
+            style: const TextStyle(
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Static method to determine winner display name
+  static String getWinnerDisplay(String winner) {
+    return winner == 'team1' ? 'Team 1' : 'Team 2';
+  }
+}
+
+// Optional: enum for match states
+enum MatchState {
+  scheduled,
+  inProgress,
+  completed,
+  cancelled;
+
+  Color get color {
+    switch (this) {
+      case MatchState.scheduled:
+        return Colors.blue;
+      case MatchState.inProgress:
+        return Colors.orange;
+      case MatchState.completed:
+        return Colors.green;
+      case MatchState.cancelled:
+        return Colors.red;
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case MatchState.scheduled:
+        return 'Scheduled';
+      case MatchState.inProgress:
+        return 'In Progress';
+      case MatchState.completed:
+        return 'Completed';
+      case MatchState.cancelled:
+        return 'Cancelled';
+    }
+  }
+}
+// lib/screens/match/components/save_indicator.dart
+
+import 'package:flutter/material.dart';
+
+class SaveIndicator extends StatelessWidget {
+  final bool isVisible;
+  final String? message;
+  final Color? color;
+
+  const SaveIndicator({
+    Key? key,
+    required this.isVisible,
+    this.message = 'Saving...',
+    this.color = Colors.orange,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: isVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color!.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color!),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(color!),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              message!,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Optional: SaveState enum for different saving states
+enum SaveState {
+  idle,
+  saving,
+  success,
+  error;
+
+  Color get color {
+    switch (this) {
+      case SaveState.saving:
+        return Colors.orange;
+      case SaveState.success:
+        return Colors.green;
+      case SaveState.error:
+        return Colors.red;
+      case SaveState.idle:
+        return Colors.grey;
+    }
+  }
+
+  String get message {
+    switch (this) {
+      case SaveState.saving:
+        return 'Saving...';
+      case SaveState.success:
+        return 'Saved!';
+      case SaveState.error:
+        return 'Error saving';
+      case SaveState.idle:
+        return '';
+    }
+  }
+}
+
+// Optional: Extended version with more features
+class SaveIndicatorExtended extends StatelessWidget {
+  final SaveState state;
+  final String? customMessage;
+  final VoidCallback? onRetry;
+
+  const SaveIndicatorExtended({
+    Key? key,
+    required this.state,
+    this.customMessage,
+    this.onRetry,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: state == SaveState.idle ? 0.0 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: state.color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: state.color),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (state == SaveState.saving)
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(state.color),
+                ),
+              )
+            else
+              Icon(
+                _getStateIcon(),
+                size: 12,
+                color: state.color,
+              ),
+            const SizedBox(width: 8),
+            Text(
+              customMessage ?? state.message,
+              style: TextStyle(
+                color: state.color,
+                fontSize: 12,
+              ),
+            ),
+            if (state == SaveState.error && onRetry != null) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onRetry,
+                child: Icon(
+                  Icons.refresh,
+                  size: 14,
+                  color: state.color,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getStateIcon() {
+    switch (state) {
+      case SaveState.success:
+        return Icons.check_circle_outline;
+      case SaveState.error:
+        return Icons.error_outline;
+      default:
+        return Icons.info_outline;
+    }
+  }
+}
+import 'package:flutter/material.dart';
+
+class ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+
+  const ErrorView({
+    Key? key,
+    required this.message,
+    this.onRetry,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: Colors.red[300],
+              size: 60,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Try Again'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+// lib/screens/match/components/undo_redo_buttons.dart
+
+import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
+
+class UndoRedoButtons extends StatelessWidget {
+  final bool canUndo;
+  final bool canRedo;
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
+  final bool showTooltips;
+  final Color? activeColor;
+  final Color? inactiveColor;
+
+  const UndoRedoButtons({
+    Key? key,
+    required this.canUndo,
+    required this.canRedo,
+    this.onUndo,
+    this.onRedo,
+    this.showTooltips = true,
+    this.activeColor = Colors.blue,
+    this.inactiveColor = Colors.grey,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        _buildActionButton(
+          icon: Icons.undo,
+          enabled: canUndo,
+          onPressed: onUndo,
+          tooltip: 'Undo last action',
+        ),
+        _buildActionButton(
+          icon: Icons.redo,
+          enabled: canRedo,
+          onPressed: onRedo,
+          tooltip: 'Redo last action',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required bool enabled,
+    VoidCallback? onPressed,
+    required String tooltip,
+  }) {
+    final button = IconButton(
+      icon: Icon(
+        icon,
+        color: enabled ? activeColor : inactiveColor,
+        size: 20,
+      ),
+      onPressed: enabled ? onPressed : null,
+      padding: const EdgeInsets.all(8),
+      constraints: const BoxConstraints(
+        minWidth: 32,
+        minHeight: 32,
+      ),
+      splashRadius: 20,
+    );
+
+    return showTooltips
+        ? Tooltip(
+            message: tooltip,
+            child: button,
+          )
+        : button;
+  }
+}
+
+// Optional: Extended version with animations and badges
+class UndoRedoButtonsExtended extends StatelessWidget {
+  final bool canUndo;
+  final bool canRedo;
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
+  final int undoCount;
+  final int redoCount;
+  final bool showCounts;
+  final Color? activeColor;
+  final Color? inactiveColor;
+
+  const UndoRedoButtonsExtended({
+    Key? key,
+    required this.canUndo,
+    required this.canRedo,
+    this.onUndo,
+    this.onRedo,
+    this.undoCount = 0,
+    this.redoCount = 0,
+    this.showCounts = false,
+    this.activeColor = Colors.blue,
+    this.inactiveColor = Colors.grey,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        _buildAnimatedButton(
+          icon: Icons.undo,
+          enabled: canUndo,
+          onPressed: onUndo,
+          tooltip: 'Undo last action',
+          count: undoCount,
+        ),
+        _buildAnimatedButton(
+          icon: Icons.redo,
+          enabled: canRedo,
+          onPressed: onRedo,
+          tooltip: 'Redo last action',
+          count: redoCount,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnimatedButton({
+    required IconData icon,
+    required bool enabled,
+    VoidCallback? onPressed,
+    required String tooltip,
+    required int count,
+  }) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Tooltip(
+          message: tooltip,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: enabled ? onPressed : null,
+              borderRadius: BorderRadius.circular(20),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: enabled
+                      ? activeColor?.withOpacity(0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  icon,
+                  color: enabled ? activeColor : inactiveColor,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (showCounts && count > 0)
+          Positioned(
+            right: -4,
+            top: -4,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: activeColor,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                count.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// Optional: Keyboard shortcuts handler
+class UndoRedoShortcuts extends StatelessWidget {
+  final Widget child;
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
+  final bool enabled;
+
+  const UndoRedoShortcuts({
+    Key? key,
+    required this.child,
+    this.onUndo,
+    this.onRedo,
+    this.enabled = true,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: enabled
+          ? <ShortcutActivator, Intent>{
+              LogicalKeySet(
+                LogicalKeyboardKey.control,
+                LogicalKeyboardKey.keyZ,
+              ): const UndoIntent(),
+              LogicalKeySet(
+                LogicalKeyboardKey.control,
+                LogicalKeyboardKey.keyY,
+              ): const RedoIntent(),
+              LogicalKeySet(
+                LogicalKeyboardKey.control,
+                LogicalKeyboardKey.shift,
+                LogicalKeyboardKey.keyZ,
+              ): const RedoIntent(),
+            }
+          : {},
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          UndoIntent: CallbackAction<UndoIntent>(
+            onInvoke: (UndoIntent intent) => onUndo?.call(),
+          ),
+          RedoIntent: CallbackAction<RedoIntent>(
+            onInvoke: (RedoIntent intent) => onRedo?.call(),
+          ),
+        },
+        child: child,
+      ),
+    );
+  }
+}
+
+// Intents for keyboard shortcuts
+class UndoIntent extends Intent {
+  const UndoIntent();
+}
+
+class RedoIntent extends Intent {
+  const RedoIntent();
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'dart:async';
+
+import '../../../models/match.dart' as match_model;
+import '../../../models/match_scoring.dart';
+import '../../../models/player.dart';
+import '../../../providers/app_state.dart';
+
+import './score_board.dart';
+import './save_indicator.dart';
+import './undo_redo_buttons.dart';
+
+class MatchCard extends StatefulWidget {
+  final match_model.Match match;
+  final bool isHistory;
+  final String? timeslot;
+
+  const MatchCard({
+    Key? key,
+    required this.match,
+    this.isHistory = false,
+    this.timeslot,
+  }) : super(key: key);
+
+  @override
+  State<MatchCard> createState() => _MatchCardState();
+}
+
+class _MatchCardState extends State<MatchCard> {
+  late MatchScoring _scoring;
+  bool _hasUnsavedChanges = false;
+  Timer? _saveTimer;
+  final List<Map<String, SetScore>> _undoStack = [];
+  final List<Map<String, SetScore>> _redoStack = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _scoring = MatchScoring();
+    _initializeScores();
+  }
+
+  @override
+  void dispose() {
+    _saveTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initializeScores() {
+    if (widget.match.score['team1']?.games != null) {
+      _scoring.teamScores['team1']!.games =
+          List<int>.from(widget.match.score['team1']!.games);
+      _scoring.teamScores['team1']!.sets = widget.match.score['team1']!.sets;
+    }
+    if (widget.match.score['team2']?.games != null) {
+      _scoring.teamScores['team2']!.games =
+          List<int>.from(widget.match.score['team2']!.games);
+      _scoring.teamScores['team2']!.sets = widget.match.score['team2']!.sets;
+    }
+  }
+
+  void _saveState() {
+    _undoStack.add({
+      'team1': SetScore()
+        ..sets = _scoring.teamScores['team1']!.sets
+        ..games = List<int>.from(_scoring.teamScores['team1']!.games),
+      'team2': SetScore()
+        ..sets = _scoring.teamScores['team2']!.sets
+        ..games = List<int>.from(_scoring.teamScores['team2']!.games),
+    });
+    _redoStack.clear();
+  }
+
+  void _debounceSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        _saveMatchScore();
+      }
+    });
+  }
+
+  Future<void> _saveMatchScore() async {
+    if (!_hasUnsavedChanges) return;
+
+    try {
+      final appState = context.read<AppState>();
+
+      // Update scores for both teams
+      await appState.updateMatchScore(
+        widget.match.id,
+        'team1',
+        'sets',
+        _scoring.teamScores['team1']!.sets,
+      );
+      await appState.updateMatchScore(
+        widget.match.id,
+        'team2',
+        'sets',
+        _scoring.teamScores['team2']!.sets,
+      );
+
+      // Update match status if complete
+      if (_scoring.isMatchComplete) {
+        await appState.updateMatchStatus(
+          widget.match.id,
+          match_model.MatchStatus.completed,
+        );
+      }
+
+      if (mounted) {
+        setState(() => _hasUnsavedChanges = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving match score: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _updateScore(String team, int gameIndex) {
+    if (_scoring.isMatchComplete) return;
+
+    _saveState();
+    setState(() {
+      final currentTeam = _scoring.teamScores[team]!;
+      final opposingTeam =
+          _scoring.teamScores[team == 'team1' ? 'team2' : 'team1']!;
+
+      while (currentTeam.games.length <= gameIndex) {
+        currentTeam.games.add(0);
+        opposingTeam.games.add(0);
+      }
+
+      currentTeam.games[gameIndex]++;
+
+      if (_isSetWon(
+          currentTeam.games[gameIndex], opposingTeam.games[gameIndex])) {
+        currentTeam.sets++;
+
+        if (currentTeam.sets == 2) {
+          _scoring.isMatchComplete = true;
+          _scoring.winner = team;
+        } else if (currentTeam.games.length < 3) {
+          currentTeam.games.add(0);
+          opposingTeam.games.add(0);
+        }
+      } else if (!_isValidGameScore(
+          currentTeam.games[gameIndex], opposingTeam.games[gameIndex])) {
+        currentTeam.games[gameIndex]--;
+      }
+
+      _hasUnsavedChanges = true;
+    });
+    _debounceSave();
+  }
+
+  bool _isSetWon(int currentTeamGames, int opposingTeamGames) {
+    return (currentTeamGames == 6 && opposingTeamGames <= 4) ||
+        (currentTeamGames == 7 &&
+            (opposingTeamGames == 5 || opposingTeamGames == 6));
+  }
+
+  bool _isValidGameScore(int currentTeamGames, int opposingTeamGames) {
+    if (currentTeamGames > 7) return false;
+    if (currentTeamGames == 7 && opposingTeamGames < 5) return false;
+    if (currentTeamGames == 6 && opposingTeamGames > 6) return false;
+    return true;
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+
+    setState(() {
+      // Save current state to redo stack
+      _redoStack.add({
+        'team1': SetScore()
+          ..sets = _scoring.teamScores['team1']!.sets
+          ..games = List<int>.from(_scoring.teamScores['team1']!.games),
+        'team2': SetScore()
+          ..sets = _scoring.teamScores['team2']!.sets
+          ..games = List<int>.from(_scoring.teamScores['team2']!.games),
+      });
+
+      // Restore previous state
+      final previousState = _undoStack.removeLast();
+      _scoring.teamScores['team1']!.sets = previousState['team1']!.sets;
+      _scoring.teamScores['team1']!.games =
+          List<int>.from(previousState['team1']!.games);
+      _scoring.teamScores['team2']!.sets = previousState['team2']!.sets;
+      _scoring.teamScores['team2']!.games =
+          List<int>.from(previousState['team2']!.games);
+
+      _hasUnsavedChanges = true;
+    });
+    _debounceSave();
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+
+    setState(() {
+      // Save current state to undo stack
+      _undoStack.add({
+        'team1': SetScore()
+          ..sets = _scoring.teamScores['team1']!.sets
+          ..games = List<int>.from(_scoring.teamScores['team1']!.games),
+        'team2': SetScore()
+          ..sets = _scoring.teamScores['team2']!.sets
+          ..games = List<int>.from(_scoring.teamScores['team2']!.games),
+      });
+
+      // Restore next state
+      final nextState = _redoStack.removeLast();
+      _scoring.teamScores['team1']!.sets = nextState['team1']!.sets;
+      _scoring.teamScores['team1']!.games =
+          List<int>.from(nextState['team1']!.games);
+      _scoring.teamScores['team2']!.sets = nextState['team2']!.sets;
+      _scoring.teamScores['team2']!.games =
+          List<int>.from(nextState['team2']!.games);
+
+      _hasUnsavedChanges = true;
+    });
+    _debounceSave();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Scheduled',
+                  style: TextStyle(
+                      color: Colors.blue, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  widget.match.time,
+                  style: const TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: _buildTeamColumn('team1')),
+                const SizedBox(width: 16),
+                ScoreBoard(
+                  scoring: _scoring,
+                  onScoreUpdate: _updateScore,
+                  isMatchComplete: _scoring.isMatchComplete,
+                ),
+                const SizedBox(width: 16),
+                Expanded(child: _buildTeamColumn('team2')),
+              ],
+            ),
+            if (_hasUnsavedChanges) ...[
+              const SizedBox(height: 8),
+              const SaveIndicator(isVisible: true),
+            ],
+            const SizedBox(height: 8),
+            UndoRedoButtons(
+              canUndo: _undoStack.isNotEmpty,
+              canRedo: _redoStack.isNotEmpty,
+              onUndo: _undoStack.isEmpty ? null : _undo,
+              onRedo: _redoStack.isEmpty ? null : _redo,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeamColumn(String team) {
+    final player1 = widget.match.players['${team}_player1'];
+    final player2 = widget.match.players['${team}_player2'];
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildPlayerRow(player1),
+        const SizedBox(height: 8),
+        _buildPlayerRow(player2),
+      ],
+    );
+  }
+
+  Widget _buildPlayerRow(Player? player) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircleAvatar(
+          radius: 20,
+          backgroundColor: Colors.grey[200],
+          backgroundImage: player?.profileImage != null
+              ? AssetImage(player!.profileImage)
+              : null,
+          child: player?.profileImage == null
+              ? const Icon(Icons.person, color: Colors.grey)
+              : null,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          player?.name ?? 'Available Slot',
+          style: const TextStyle(fontSize: 14),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+// lib/screens/match/components/player_info.dart
+
+import 'package:flutter/material.dart';
+import '../../../models/player.dart';
+
+class PlayerInfo extends StatelessWidget {
+  final Player player;
+  final bool showRating;
+  final Alignment alignment;
+  final double avatarSize;
+  final TextStyle? nameStyle;
+
+  const PlayerInfo({
+    Key? key,
+    required this.player,
+    this.showRating = false,
+    this.alignment = Alignment.centerLeft,
+    this.avatarSize = 32,
+    this.nameStyle,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 200),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        textDirection: alignment == Alignment.centerRight
+            ? TextDirection.rtl
+            : TextDirection.ltr,
+        children: [
+          _buildAvatar(),
+          const SizedBox(width: 8),
+          Flexible(child: _buildPlayerDetails()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    return CircleAvatar(
+      radius: avatarSize / 2,
+      backgroundImage: AssetImage(player.profileImage),
+      backgroundColor: Colors.grey[200],
+      onBackgroundImageError: (exception, stackTrace) {
+        debugPrint('Error loading player image: $exception');
+      },
+      child: _buildAvatarFallback(),
+    );
+  }
+
+  Widget? _buildAvatarFallback() {
+    return player.profileImage.isEmpty
+        ? Text(
+            player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
+            style: TextStyle(
+              fontSize: avatarSize * 0.5,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          )
+        : null;
+  }
+
+  Widget _buildPlayerDetails() {
+    return Column(
+      crossAxisAlignment: alignment == Alignment.centerRight
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          player.name,
+          style: nameStyle ??
+              const TextStyle(
+                color: Colors.black87,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (showRating) _buildRatingBadge(),
+      ],
+    );
+  }
+
+  Widget _buildRatingBadge() {
+    return Container(
+      margin: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 6,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: _getRatingColor().withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: _getRatingColor(),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        'Rating: ${player.rating.toStringAsFixed(1)}',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: _getRatingColor(),
+        ),
+      ),
+    );
+  }
+
+  Color _getRatingColor() {
+    if (player.rating >= 4.5) return Colors.green;
+    if (player.rating >= 4.0) return Colors.blue;
+    if (player.rating >= 3.0) return Colors.orange;
+    return Colors.red;
+  }
+}
+
+// Optional: TeamPlayerInfo widget for showing multiple players
+class TeamPlayerInfo extends StatelessWidget {
+  final List<Player> players;
+  final String teamName;
+  final Alignment alignment;
+  final bool showRating;
+
+  const TeamPlayerInfo({
+    Key? key,
+    required this.players,
+    required this.teamName,
+    this.alignment = Alignment.centerLeft,
+    this.showRating = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: alignment == Alignment.centerRight
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        Text(
+          teamName,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 4),
+        ...players.map((player) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: PlayerInfo(
+                player: player,
+                alignment: alignment,
+                showRating: showRating,
+                avatarSize: 28,
+              ),
+            )),
+      ],
+    );
+  }
+}
+
+// Optional: Compact version for tight spaces
+class CompactPlayerInfo extends StatelessWidget {
+  final Player player;
+  final bool showRating;
+
+  const CompactPlayerInfo({
+    Key? key,
+    required this.player,
+    this.showRating = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircleAvatar(
+          radius: 12,
+          backgroundImage: AssetImage(player.profileImage),
+          backgroundColor: Colors.grey[200],
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            player.name,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (showRating) ...[
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              player.rating.toStringAsFixed(1),
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import '../../models/player.dart';
+
+class MatchResultsView extends StatelessWidget {
+  final List<Player> players;
+
+  const MatchResultsView({Key? key, required this.players}) : super(key: key);
+
+  Color getRankColor(int rank) {
+    if (rank >= 1 && rank <= 15) return Colors.blue[900]!;
+    if (rank >= 16 && rank <= 30) return Colors.blue[300]!;
+    if (rank >= 31 && rank <= 50) return Colors.yellow;
+    if (rank >= 51 && rank <= 70) return Colors.green;
+    if (rank >= 71 && rank <= 90) return Colors.orange;
+    return Colors.red;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.grey[200],
+          child: const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Padeltrax S League',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.black),
+                ),
+              ),
+              Text(
+                'Statistics',
+                style:
+                    TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+              ),
+              SizedBox(width: 16),
+              Text(
+                'Sets',
+                style:
+                    TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: players.length,
+            itemBuilder: (context, index) {
+              final player = players[index];
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey[300]!),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: getRankColor(index + 1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        player.name,
+                        style: const TextStyle(
+                            color: Colors.black, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    _buildStatBox('0', Colors.grey[300]!),
+                    _buildStatBox('0', Colors.green),
+                    _buildStatBox('0', Colors.yellow),
+                    _buildStatBox('0', Colors.red),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 40,
+                      alignment: Alignment.center,
+                      child: const Text(
+                        '0%',
+                        style: TextStyle(
+                            color: Colors.black, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildStatBox('0', Colors.green),
+                    _buildStatBox('0', Colors.red),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatBox(String text, Color color) {
+    return Container(
+      width: 30,
+      height: 24,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+      ),
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/app_state.dart';
+import '../../services/match_maker.dart';
+import 'tabs/current_matches_tab.dart';
+import 'tabs/match_history_tab.dart';
+
+class MatchView extends StatelessWidget {
+  const MatchView({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.blue,
+          title: const Text('Match Day'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.autorenew),
+              onPressed: () => _createAutomaticMatches(context),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                context.read<AppState>().refreshMatches();
+              },
+            ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Today\'s Matches'),
+              Tab(text: 'Match History'),
+            ],
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            CurrentMatchesTab(),
+            MatchHistoryTab(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createAutomaticMatches(BuildContext context) async {
+    final appState = context.read<AppState>();
+    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    final today = weekdays[DateTime.now().weekday - 1];
+
+    try {
+      final earlyMatches = await MatchMaker.createMatchesFromBookings(
+        appState,
+        today,
+        'Early Timeslot',
+      );
+
+      final laterMatches = await MatchMaker.createMatchesFromBookings(
+        appState,
+        today,
+        'Later Timeslot',
+      );
+
+      for (var match in [...earlyMatches, ...laterMatches]) {
+        await appState.createMatch(
+          date: match.date,
+          time: match.time,
+          team1PlayerIds: [
+            match.players['team1_player1']!.id,
+            match.players['team1_player2']!.id,
+          ],
+          team2PlayerIds: [
+            match.players['team2_player1']!.id,
+            match.players['team2_player2']!.id,
+          ],
+        );
+      }
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Created ${earlyMatches.length + laterMatches.length} matches successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error creating matches: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../models/match.dart';
+import '../../../models/player.dart';
+import '../../../providers/app_state.dart';
+
+import '../components/match_card.dart'; // Import from components folder
+
+class CurrentMatchesTab extends StatelessWidget {
+  const CurrentMatchesTab({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 5,
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          title:
+              const Text('Match Days', style: TextStyle(color: Colors.black)),
+          bottom: const TabBar(
+            labelColor: Colors.blue,
+            unselectedLabelColor: Colors.grey,
+            tabs: [
+              Tab(text: 'Monday'),
+              Tab(text: 'Tuesday'),
+              Tab(text: 'Wednesday'),
+              Tab(text: 'Thursday'),
+              Tab(text: 'Friday'),
+            ],
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            DayMatchesView(day: 'Monday'),
+            DayMatchesView(day: 'Tuesday'),
+            DayMatchesView(day: 'Wednesday'),
+            DayMatchesView(day: 'Thursday'),
+            DayMatchesView(day: 'Friday'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DayMatchesView extends StatelessWidget {
+  final String day;
+
+  const DayMatchesView({Key? key, required this.day}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppState>(
+      builder: (context, appState, child) {
+        final bookings = appState.bookings[day] ?? [];
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTimeslotSection(
+                'Early Timeslot',
+                bookings
+                    .where((b) =>
+                        b['timeslot'] == 'Early Timeslot' ||
+                        b['timeslot'] == 'Play Either')
+                    .toList(),
+                appState,
+              ),
+              const SizedBox(height: 24),
+              _buildTimeslotSection(
+                'Later Timeslot',
+                bookings
+                    .where((b) =>
+                        b['timeslot'] == 'Later Timeslot' ||
+                        b['timeslot'] == 'Play Either')
+                    .toList(),
+                appState,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimeslotSection(
+    String timeslot,
+    List<Map<String, dynamic>> bookings,
+    AppState appState,
+  ) {
+    final matches = _createMatchesFromBookings(bookings, appState.players);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          timeslot,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...matches.map((match) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: MatchCard(
+                match: match,
+                timeslot: timeslot,
+              ),
+            )),
+        if (matches.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Waiting for players to join...',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  List<Match> _createMatchesFromBookings(
+    List<Map<String, dynamic>> bookings,
+    List<Player> allPlayers,
+  ) {
+    if (bookings.isEmpty) return [];
+
+    final bookedPlayers = allPlayers
+        .where((player) =>
+            bookings.any((booking) => booking['playerId'] == player.id))
+        .toList();
+
+    bookedPlayers.sort((a, b) => a.rank.compareTo(b.rank));
+
+    List<Match> matches = [];
+    for (var i = 0; i < bookedPlayers.length; i += 4) {
+      final matchPlayers = <Player>[];
+      for (var j = 0; j < 4; j++) {
+        if (i + j < bookedPlayers.length) {
+          matchPlayers.add(bookedPlayers[i + j]);
+        } else {
+          matchPlayers.add(Player(
+            id: 'placeholder${matchPlayers.length + 1}',
+            name: 'Available Slot',
+            rating: 0,
+            rank: 999,
+            profileImage: 'assets/images/profile.png',
+            createdAt: DateTime.now(),
+          ));
+        }
+      }
+
+      matches.add(Match(
+        id: 'match${matches.length + 1}',
+        date: DateTime.now(),
+        time: _getMatchTime(matches.length),
+        status: MatchStatus.scheduled,
+        players: {
+          'team1_player1': matchPlayers[0], // Best ranked
+          'team1_player2': matchPlayers[3], // Worst ranked
+          'team2_player1': matchPlayers[1], // Second best
+          'team2_player2': matchPlayers[2], // Third best
+        },
+        score: {
+          'team1': Score(sets: 0, games: []),
+          'team2': Score(sets: 0, games: []),
+        },
+        createdAt: DateTime.now(),
+      ));
+    }
+
+    return matches;
+  }
+
+  String _getMatchTime(int matchIndex) {
+    const baseHour = 9;
+    const matchesPerHour = 2;
+
+    final hour = baseHour + (matchIndex ~/ matchesPerHour);
+    final minute = (matchIndex % matchesPerHour) * 30;
+
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/app_state.dart';
+import '../../../models/match.dart';
+import '../components/match_card.dart';
+
+class MatchHistoryTab extends StatelessWidget {
+  const MatchHistoryTab({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppState>(
+      builder: (context, appState, child) {
+        final completedMatches = appState.matches
+            .where((match) => match.status == MatchStatus.completed)
+            .toList();
+
+        if (completedMatches.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.history, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'No completed matches yet',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: completedMatches.length,
+          itemBuilder: (context, index) {
+            return MatchCard(
+              match: completedMatches[index],
+              isHistory: true,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../main_dashboard/main_dashboard.dart';
+import 'registration_screen.dart'; // Add this import
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({Key? key}) : super(key: key);
+
+  @override
+  State<LoginScreen> createState() => LoginScreenState();
+}
+
+class LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _auth = FirebaseAuth.instance;
+  bool _isLoading = false;
+  String? _error;
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      debugPrint('Attempting login with email: ${_emailController.text}');
+
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      if (userCredential.user != null) {
+        debugPrint('Login successful for user: ${userCredential.user!.uid}');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainDashboard()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Firebase Auth Error: ${e.code} - ${e.message}');
+      setState(() {
+        _error = _getErrorMessage(e.code);
+      });
+    } catch (e) {
+      debugPrint('General Error: $e');
+      setState(() {
+        _error = 'An unexpected error occurred';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _getErrorMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No user found with this email';
+      case 'wrong-password':
+        return 'Invalid password';
+      case 'invalid-email':
+        return 'Please enter a valid email address';
+      case 'user-disabled':
+        return 'This account has been disabled';
+      default:
+        return 'Login failed: $code';
+    }
+  }
+
+  void _navigateToRegistration() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const RegistrationScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Welcome Back',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: const Icon(Icons.email),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    if (!value.contains('@')) {
+                      return 'Please enter a valid email address';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: const Icon(Icons.lock),
+                  ),
+                  obscureText: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    return null;
+                  },
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _handleLogin,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Login',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: _navigateToRegistration, // Use the new method
+                  child: const Text('Need an account? Register'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:typed_data';
+import '../../models/user_model.dart';
+import '../main_dashboard/main_dashboard.dart';
+
+class RegistrationScreen extends StatefulWidget {
+  const RegistrationScreen({Key? key}) : super(key: key);
+
+  @override
+  State<RegistrationScreen> createState() => _RegistrationScreenState();
+}
+
+class _RegistrationScreenState extends State<RegistrationScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _levelController = TextEditingController();
+  final _nationalityController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  String _preferredSide = 'Left';
+  bool _isLoading = false;
+  Uint8List? _selectedImageBytes;
+  String? _error;
+
+  Future<void> _pickImage() async {
+    if (!mounted) return;
+    try {
+      final XFile? result =
+          await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (result != null && mounted) {
+        final bytes = await result.readAsBytes();
+        setState(() {
+          _selectedImageBytes = bytes;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking image: $e')),
+      );
+    }
+  }
+
+  Future<void> _createUserAndPlayerRecords(String userId) async {
+    try {
+      // 1. Create User document
+      final userModel = UserModel(
+        id: userId,
+        email: _emailController.text.trim(),
+        name: _nameController.text.trim(),
+        level: double.parse(_levelController.text.trim()),
+        nationality: _nationalityController.text.trim(),
+        preferredSide: _preferredSide,
+        profileImageUrl: null,
+        createdAt: DateTime.now(),
+      );
+
+      await _firestore.collection('users').doc(userId).set(userModel.toMap());
+      debugPrint('User document created successfully');
+
+      // 2. Create Player document
+      final playerData = {
+        'id': userId,
+        'name': _nameController.text.trim(),
+        'rating': double.parse(_levelController.text.trim()),
+        'rank': 0, // Default rank
+        'profileImage': 'assets/images/profile.png',
+        'createdAt': FieldValue.serverTimestamp(),
+        'signedTimeslots': {},
+        'wins': 0,
+        'losses': 0,
+        'draws': 0
+      };
+
+      await _firestore.collection('players').doc(userId).set(playerData);
+      debugPrint('Player document created successfully');
+    } catch (e) {
+      debugPrint('Error creating documents: $e');
+      rethrow; // Preserves original stack trace
+    }
+  }
+
+  Future<void> _handleRegistration() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // 1. Create Authentication User
+      debugPrint('Creating authentication user...');
+      final userCredential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      if (userCredential.user == null) {
+        throw Exception('Failed to create user account');
+      }
+
+      // 2. Create User and Player records
+      debugPrint('Creating user and player records...');
+      await _createUserAndPlayerRecords(userCredential.user!.uid);
+
+      if (!mounted) return;
+
+      // 3. Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Registration successful!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // 4. Navigate to Dashboard
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainDashboard()),
+        (route) => false,
+      );
+    } catch (e) {
+      debugPrint('Registration error: $e');
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Account'),
+        backgroundColor: Colors.blue,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: _pickImage,
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: _selectedImageBytes != null
+                      ? MemoryImage(_selectedImageBytes!)
+                      : null,
+                  child: _selectedImageBytes == null
+                      ? const Icon(Icons.camera_alt,
+                          size: 40, color: Colors.grey)
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Other form fields remain the same
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    _levelController.dispose();
+    _nationalityController.dispose();
+    super.dispose();
+  }
+}
+import 'package:flutter/material.dart';
+import 'dart:typed_data';
+
+class RegistrationForm extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final TextEditingController nameController;
+  final TextEditingController levelController;
+  final TextEditingController nationalityController;
+  final String preferredSide;
+  final Function(String?) onSideChanged;
+  final VoidCallback onImagePick;
+  final Uint8List? selectedImageBytes;
+  final String? error;
+
+  const RegistrationForm({
+    Key? key,
+    required this.formKey,
+    required this.emailController,
+    required this.passwordController,
+    required this.nameController,
+    required this.levelController,
+    required this.nationalityController,
+    required this.preferredSide,
+    required this.onSideChanged,
+    required this.onImagePick,
+    this.selectedImageBytes,
+    this.error,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          GestureDetector(
+            onTap: onImagePick,
+            child: CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.grey[200],
+              backgroundImage: selectedImageBytes != null
+                  ? MemoryImage(selectedImageBytes!)
+                  : null,
+              child: selectedImageBytes == null
+                  ? const Icon(Icons.camera_alt, size: 40, color: Colors.grey)
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 24),
+          TextFormField(
+            controller: nameController,
+            decoration: const InputDecoration(
+              labelText: 'Full Name',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.person),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your name';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: emailController,
+            decoration: const InputDecoration(
+              labelText: 'Email',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.email),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your email';
+              }
+              if (!value.contains('@')) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: passwordController,
+            decoration: const InputDecoration(
+              labelText: 'Password',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.lock),
+            ),
+            obscureText: true,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a password';
+              }
+              if (value.length < 6) {
+                return 'Password must be at least 6 characters';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: levelController,
+            decoration: const InputDecoration(
+              labelText: 'Current Level (1-5)',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.stars),
+            ),
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your current level';
+              }
+              final level = double.tryParse(value);
+              if (level == null || level < 1 || level > 5) {
+                return 'Please enter a valid level between 1 and 5';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: nationalityController,
+            decoration: const InputDecoration(
+              labelText: 'Nationality',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.flag),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your nationality';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: preferredSide,
+            decoration: const InputDecoration(
+              labelText: 'Preferred Side',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.sports_tennis),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'Left', child: Text('Left')),
+              DropdownMenuItem(value: 'Right', child: Text('Right')),
+              DropdownMenuItem(value: 'Both', child: Text('Both')),
+            ],
+            onChanged: onSideChanged,
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 24),
+            Text(
+              error!,
+              style: const TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/app_state.dart';
+import 'form_view.dart';
+import 'match_results_view.dart';
+
+class TableTabs extends StatelessWidget {
+  const TableTabs({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          TabBar(
+            tabs: const [
+              Tab(text: 'Form'),
+              Tab(text: 'Match Results'),
+            ],
+            labelColor: Colors.blue,
+            unselectedLabelColor: Colors.grey,
+          ),
+          Expanded(
+            child: Consumer<AppState>(
+              builder: (context, appState, child) {
+                return TabBarView(
+                  children: [
+                    FormView(players: appState.players),
+                    MatchResultsView(players: appState.players),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import '../../models/player.dart';
+
+class FormView extends StatelessWidget {
+  final List<Player> players;
+
+  const FormView({Key? key, required this.players}) : super(key: key);
+
+  Color getRankColor(int rank) {
+    if (rank >= 1 && rank <= 15) return Colors.blue.shade900;
+    if (rank >= 16 && rank <= 30) return Colors.blue.shade300;
+    if (rank >= 31 && rank <= 50) return Colors.amber;
+    if (rank >= 51 && rank <= 70) return Colors.green;
+    if (rank >= 71 && rank <= 90) return Colors.orange;
+    return Colors.red;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedPlayers = List<Player>.from(players)
+      ..sort((a, b) => a.statistics.rating.compareTo(b.statistics.rating));
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.grey.shade100,
+          child: const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Padeltrax S League',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              SizedBox(
+                  width: 80,
+                  child: Text('Rating',
+                      style: TextStyle(fontWeight: FontWeight.bold))),
+              SizedBox(
+                  width: 120,
+                  child: Text('Form',
+                      style: TextStyle(fontWeight: FontWeight.bold))),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: sortedPlayers.length,
+            itemBuilder: (context, index) {
+              final player = sortedPlayers[index];
+              return InkWell(
+                onTap: () => _showPlayerStats(context, player),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border:
+                        Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildRankBadge(index + 1),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            player.avatar(size: 32),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    player.name,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    '${player.statistics.wins}W ${player.statistics.draws}D ${player.statistics.losses}L',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        width: 80,
+                        child: Text(
+                          player.statistics.rating.toStringAsFixed(2),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 120,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children:
+                              player.statistics.recentMatches.map((result) {
+                            return Container(
+                              width: 22,
+                              height: 22,
+                              margin: const EdgeInsets.only(left: 2),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: _getResultColor(result),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                result,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRankBadge(int rank) {
+    return Container(
+      width: 32,
+      height: 32,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: getRankColor(rank),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        rank.toString(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Color _getResultColor(String result) {
+    switch (result) {
+      case 'W':
+        return Colors.green;
+      case 'D':
+        return Colors.orange;
+      case 'L':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  void _showPlayerStats(BuildContext context, Player player) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => _PlayerStatsSheet(player: player),
+    );
+  }
+}
+
+class _PlayerStatsSheet extends StatelessWidget {
+  final Player player;
+
+  const _PlayerStatsSheet({Key? key, required this.player}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              player.avatar(size: 48),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(player.name,
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                        'Rating: ${player.statistics.rating.toStringAsFixed(2)}',
+                        style: TextStyle(color: Colors.blue.shade700)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 32),
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              _buildStatItem(
+                  'Matches', player.statistics.totalMatches.toString()),
+              _buildStatItem('Wins', player.statistics.wins.toString()),
+              _buildStatItem('Win Rate',
+                  '${player.statistics.winRate.toStringAsFixed(1)}%'),
+              _buildStatItem('Current Streak',
+                  _formatStreak(player.statistics.currentStreak)),
+              _buildStatItem('Sets Won', player.statistics.setsWon.toString()),
+              _buildStatItem(
+                  'Games Won', player.statistics.gamesWon.toString()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  String _formatStreak(int streak) {
+    if (streak == 0) return '0';
+    if (streak > 0) return '+$streak';
+    return streak.toString();
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/app_state.dart';
+import '../../models/player.dart';
+import '../../theme/theme.dart';
+import 'booking_details_page.dart';
+
+class BookingsPage extends StatelessWidget {
+  const BookingsPage({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppState>(
+      builder: (context, appState, child) {
+        if (appState.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (appState.players.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.person_off, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  'No players available',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: appState.initializeStreams,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+            ),
+          ),
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await appState.initializeStreams();
+            },
+            child: ListView.builder(
+              padding: const EdgeInsets.only(top: 8),
+              itemCount: appState.players.length,
+              itemBuilder: (context, index) {
+                Player player = appState.players[index];
+                return buildPlayerCard(context, player);
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget buildPlayerCard(BuildContext context, Player player) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 4,
+      color: Colors.grey[200], // Soft gray color for the card
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: () => _navigateToBookingDetails(context, player),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              buildPlayerAvatar(player),
+              const SizedBox(width: 16),
+              Expanded(
+                child: buildPlayerInfo(context, player),
+              ),
+              buildNavigationIcon(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildPlayerAvatar(Player player) {
+    return CircleAvatar(
+      radius: 30,
+      backgroundImage: player.profileImage.isNotEmpty
+          ? NetworkImage(player.profileImage)
+          : const AssetImage('assets/images/default_avatar.png')
+              as ImageProvider,
+      backgroundColor: Colors.grey[300],
+    );
+  }
+
+  Widget buildPlayerInfo(BuildContext context, Player player) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          player.name,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(Icons.sports_tennis, size: 16, color: Colors.grey[600]),
+            const SizedBox(width: 4),
+            Text(
+              'Rank: ${player.rank}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+        if (player.signedTimeslots.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          buildBookingTags(context, player), // Pass context here
+        ],
+      ],
+    );
+  }
+
+  Widget buildBookingTags(BuildContext context, Player player) {
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: player.signedTimeslots.entries.map((entry) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.green),
+          ),
+          child: Text(
+            '${entry.key}: ${entry.value}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.green[700],
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget buildNavigationIcon() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        Icons.chevron_right,
+        color: Colors.grey[400],
+      ),
+    );
+  }
+
+  Future<void> _navigateToBookingDetails(
+      BuildContext context, Player player) async {
+    try {
+      final updatedPlayer = await Navigator.push<Player?>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BookingDetailsPage(player: player),
+        ),
+      );
+
+      if (updatedPlayer != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bookings updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating bookings: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}
+import 'package:flutter/material.dart';
+import '../../models/player.dart';
+import '../../theme/theme.dart';
+
+class BookingDetailsPage extends StatefulWidget {
+  final Player player;
+
+  const BookingDetailsPage({Key? key, required this.player}) : super(key: key);
+
+  @override
+  State<BookingDetailsPage> createState() => _BookingDetailsPageState();
+}
+
+class _BookingDetailsPageState extends State<BookingDetailsPage> {
+  final Map<String, String> _selectedTimeslots = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTimeslots.addAll(widget.player.signedTimeslots);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppTheme.primaryColor,
+        title: Text(
+          'Bookings - ${widget.player.name}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        elevation: 2,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPlayerHeader(context),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _buildTimeslotSelector(),
+          ),
+          const SizedBox(height: 8),
+          _buildActionButtons(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayerHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 45,
+            backgroundImage: widget.player.profileImage.isNotEmpty
+                ? NetworkImage(widget.player.profileImage)
+                : const AssetImage('assets/images/default_avatar.png')
+                    as ImageProvider,
+            backgroundColor: Colors.grey[300],
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.player.name,
+                style: Theme.of(context).textTheme.headline6?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Rating: ${widget.player.rating.toStringAsFixed(1)}',
+                style: Theme.of(context).textTheme.subtitle1?.copyWith(
+                      color: Colors.white70,
+                    ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeslotSelector() {
+    final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    final timeslots = ['Early', 'Late', 'Play Either'];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: ListView.separated(
+        itemCount: days.length,
+        separatorBuilder: (_, __) =>
+            const Divider(thickness: 1, color: Colors.grey),
+        itemBuilder: (context, index) {
+          final day = days[index];
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                day,
+                style: Theme.of(context).textTheme.subtitle1?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: timeslots.map((timeslot) {
+                  final isSelected = _selectedTimeslots[day] == timeslot;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedTimeslots[day] = timeslot;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                        border: isSelected
+                            ? Border.all(color: Colors.white)
+                            : Border.all(color: Colors.grey[400]!),
+                      ),
+                      child: Text(
+                        timeslot,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black87,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: BorderSide(color: AppTheme.primaryColor),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Cancel',
+                style: Theme.of(context).textTheme.button?.copyWith(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: () {
+                widget.player.signedTimeslots.clear();
+                widget.player.signedTimeslots.addAll(_selectedTimeslots);
+                Navigator.pop(context, widget.player);
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                primary: AppTheme.primaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Save',
+                style:
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'main_dashboard/main_dashboard.dart';
+import '../theme/theme.dart'; // Import the unified theme
+
+class StartingPage extends StatelessWidget {
+  const StartingPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor, // Use theme background color
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Logo
+              Image.asset(
+                'assets/images/padeltrax_logo.png',
+                width: 200,
+                height: 200,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Welcome to Padeltrax',
+                style:
+                    Theme.of(context).textTheme.displayLarge, // Use theme style
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MainDashboard(),
+                    ),
+                  );
+                },
+                style: AppTheme.elevatedButtonStyle, // Use theme button style
+                child: Text(
+                  'Start Playing',
+                  style:
+                      AppTheme.buttonText, // Use theme text style for buttons
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/app_state.dart';
+import '../../models/player.dart';
+
+class SchedulePage extends StatefulWidget {
+  const SchedulePage({Key? key}) : super(key: key);
+
+  @override
+  SchedulePageState createState() => SchedulePageState();
+}
+
+class SchedulePageState extends State<SchedulePage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final List<String> _days = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 5, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadBookingsForCurrentDay();
+    });
+
+    _tabController.addListener(() {
+      _loadBookingsForCurrentDay();
+    });
+  }
+
+  void _loadBookingsForCurrentDay() {
+    final currentDay = _days[_tabController.index];
+    if (mounted) {
+      context.read<AppState>().loadBookingsForDay(currentDay);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Widget buildTimeSlotColumn(
+    String title,
+    List<Map<String, dynamic>> bookings,
+    List<Player> players,
+    String timeslot,
+  ) {
+    final timeSlotBookings = bookings
+        .where(
+            (b) => b['timeslot'] == timeslot || b['timeslot'] == 'Play Either')
+        .toList();
+
+    return Expanded(
+      child: Card(
+        elevation: 2,
+        margin: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade700,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(4),
+                ),
+              ),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            if (timeSlotBookings.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'No players signed up for this timeslot.',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  itemCount: timeSlotBookings.length,
+                  itemBuilder: (context, index) {
+                    final booking = timeSlotBookings[index];
+                    final player = players.firstWhere(
+                      (p) => p.id == booking['playerId'],
+                      orElse: () => Player(
+                        id: 'unknown',
+                        name: 'Unknown Player',
+                        rating: 0,
+                        rank: 0,
+                        profileImage: 'assets/images/profile.png',
+                        createdAt: DateTime.now(),
+                      ),
+                    );
+
+                    return ListTile(
+                      leading: player.avatar(size: 40),
+                      title: Text(player.name),
+                      subtitle: Text(
+                        booking['timeslot'] == 'Play Either'
+                            ? 'Available for both timeslots'
+                            : 'Rating: ${player.rating}',
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildDaySchedule(String day, AppState appState) {
+    final dayBookings = appState.bookings[day] ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                buildTimeSlotColumn(
+                  'Early Timeslot',
+                  dayBookings,
+                  appState.players,
+                  'Early Timeslot',
+                ),
+                buildTimeSlotColumn(
+                  'Later Timeslot',
+                  dayBookings,
+                  appState.players,
+                  'Later Timeslot',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Schedule'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: _days.map((day) => Tab(text: day)).toList(),
+          isScrollable: true,
+        ),
+      ),
+      body: Consumer<AppState>(
+        builder: (context, appState, child) {
+          if (appState.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          return TabBarView(
+            controller: _tabController,
+            children:
+                _days.map((day) => buildDaySchedule(day, appState)).toList(),
+          );
+        },
+      ),
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../booking/bookings_page.dart';
+import '../schedule/schedule_page.dart';
+import '../match/match_view.dart';
+import '../../services/auth_service.dart';
+import '../auth/login_screen.dart';
+import '../../providers/app_state.dart';
+
+class MainDashboard extends StatefulWidget {
+  const MainDashboard({Key? key}) : super(key: key);
+
+  @override
+  State<MainDashboard> createState() => _MainDashboardState();
+}
+
+class _MainDashboardState extends State<MainDashboard> {
+  int _selectedIndex = 0;
+  final AuthService _authService = AuthService();
+  bool _isLoading = false;
+
+  // Define page titles
+  final List<String> _pageTitles = const [
+    'Bookings',
+    'League Table',
+    'Schedule',
+    'Match Day'
+  ];
+
+  late final List<Widget> _pages = [
+    const BookingsPage(),
+    _buildLeagueTable(), // Using a method to build the table
+    const SchedulePage(),
+    const MatchView(),
+  ];
+
+  Widget _buildLeagueTable() {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Form'),
+              Tab(text: 'Match Results'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildFormTab(),
+            _buildMatchResultsTab(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormTab() {
+    final appState = context.watch<AppState>();
+    return ListView.builder(
+      itemCount: appState.players.length,
+      itemBuilder: (context, index) {
+        final player = appState.players[index];
+        return ListTile(
+          leading: CircleAvatar(
+            child: Text(player.name[0]),
+          ),
+          title: Text(player.name),
+          subtitle: Text('Rating: ${player.rating}'),
+        );
+      },
+    );
+  }
+
+  Widget _buildMatchResultsTab() {
+    return const Center(
+      child: Text('Match Results'),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AppState>().initializeStreams();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_pageTitles[_selectedIndex]),
+        centerTitle: true,
+        actions: [
+          if (appState.isLoading || _isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => appState.initializeStreams(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _handleLogout,
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: _pages,
+          ),
+          if (appState.isLoading || _isLoading)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'Bookings',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.table_chart),
+            label: 'Table',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.schedule),
+            label: 'Schedule',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.sports_tennis),
+            label: 'Match Day',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+        onTap: _handleNavigation,
+      ),
+    );
+  }
+
+  void _handleNavigation(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    final appState = context.read<AppState>();
+    switch (index) {
+      case 0: // Bookings
+        appState.initializeStreams();
+        break;
+      case 1: // Table
+        appState.initializeStreams();
+        break;
+      case 2: // Schedule
+        final weekdays = [
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday'
+        ];
+        for (var day in weekdays) {
+          appState.loadBookingsForDay(day);
+        }
+        break;
+      case 3: // Match Day
+        appState.refreshMatches();
+        break;
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    try {
+      setState(() => _isLoading = true);
+
+      await FirebaseAuth.instance.signOut();
+      await _authService.signOut();
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (Route<dynamic> route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error logging out: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+}
